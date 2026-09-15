@@ -1,0 +1,17 @@
+node_modules/
+.npm-cache/
+*.tsbuildinfo
+dist/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+.env.local
+*.log
+test-results/
+playwright-report/
+.local/
+workspace/*
+!workspace/.gitkeep
