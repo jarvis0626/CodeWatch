@@ -16,8 +16,11 @@ Stage = Literal[
     "COMPLETE",
 ]
 Status = Literal["pending", "running", "completed", "failed"]
-NodeKind = Literal["agent", "frontend", "api", "service", "repository", "database", "test"]
+NodeKind = Literal[
+    "agent", "frontend", "api", "service", "repository", "database", "test", "module", "config", "style"
+]
 NodeState = Literal["planned", "active", "completed", "failed"]
+EventSource = Literal["simulator", "filesystem", "agent", "system", "command"]
 
 
 class Payload(BaseModel):
@@ -54,6 +57,7 @@ class GraphNode(Payload):
     kind: NodeKind
     state: NodeState
     path: str | None = None
+    description: str | None = None
 
 
 class NodeUpdate(Payload):
@@ -66,6 +70,15 @@ class GraphEdge(Payload):
     source: str
     target: str
     label: str
+    evidence: Literal["import", "reported", "simulated"] = "simulated"
+
+
+class NodeRemoval(Payload):
+    nodeId: str
+
+
+class EdgeRemoval(Payload):
+    edgeId: str
 
 
 class CompleteData(Payload):
@@ -86,6 +99,8 @@ class Envelope(BaseModel, Generic[Data]):
     sequence: int = Field(ge=1)
     status: Status
     data: Data
+    source: EventSource = "simulator"
+    agentName: str | None = None
 
 
 class StageEvent(Envelope[StageData]):
@@ -97,7 +112,7 @@ class MessageEvent(Envelope[Payload]):
 
 
 class FileEvent(Envelope[FileData]):
-    type: Literal["file_created", "file_modified"]
+    type: Literal["file_created", "file_modified", "file_deleted"]
 
 
 class CommandEvent(Envelope[CommandData]):
@@ -120,6 +135,14 @@ class EdgeEvent(Envelope[GraphEdge]):
     type: Literal["graph_edge_added"]
 
 
+class NodeRemovedEvent(Envelope[NodeRemoval]):
+    type: Literal["graph_node_removed"]
+
+
+class EdgeRemovedEvent(Envelope[EdgeRemoval]):
+    type: Literal["graph_edge_removed"]
+
+
 class CompleteEvent(Envelope[CompleteData]):
     type: Literal["build_complete"]
 
@@ -133,6 +156,8 @@ AgentEvent = Annotated[
     | NodeEvent
     | NodeUpdateEvent
     | EdgeEvent
+    | NodeRemovedEvent
+    | EdgeRemovedEvent
     | CompleteEvent,
     Field(discriminator="type"),
 ]

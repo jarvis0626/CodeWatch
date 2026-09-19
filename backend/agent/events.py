@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from backend.models.events import AgentEvent, Status, event_adapter
+from backend.models.events import AgentEvent, EventSource, Status, event_adapter
 
 
 class EventFactory:
@@ -11,7 +11,15 @@ class EventFactory:
         self.run_id = run_id
         self.sequence = 0
 
-    def emit(self, event_type: str, status: Status = "running", **data: object) -> AgentEvent:
+    def emit(
+        self,
+        event_type: str,
+        status: Status = "running",
+        *,
+        event_source: EventSource = "simulator",
+        agent_name: str | None = None,
+        **data: object,
+    ) -> AgentEvent:
         self.sequence += 1
         return event_adapter.validate_python(
             {
@@ -23,5 +31,7 @@ class EventFactory:
                 "type": event_type,
                 "status": status,
                 "data": data,
+                "source": event_source,
+                "agentName": agent_name,
             }
         )

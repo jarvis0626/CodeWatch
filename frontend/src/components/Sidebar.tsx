@@ -9,6 +9,8 @@ import {
   Terminal,
 } from 'lucide-react';
 import { useState } from 'react';
+import type { SessionInfo } from '../types/events';
+import { PRODUCT_NAME, PRODUCT_VERSION } from '../config';
 
 const links = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -18,7 +20,7 @@ const links = [
   { id: 'activity', label: 'Event stream', icon: Terminal },
 ];
 
-export function Sidebar() {
+export function Sidebar({ mode, session }: { mode: 'live' | 'demo'; session: SessionInfo | null }) {
   const [active, setActive] = useState('overview');
   return (
     <aside className="sidebar">
@@ -43,7 +45,7 @@ export function Sidebar() {
           <Activity size={14} />
         </span>
         <span>
-          Todo application<small>React + FastAPI + SQLite</small>
+          {mode === 'demo' ? 'Todo application' : session?.projectName ?? 'No project connected'}<small>{mode === 'demo' ? 'Illustrative build' : session?.watching ? 'Filesystem observer active' : 'Connect a local folder'}</small>
         </span>
       </a>
       <div className="sidebar-bottom">
@@ -53,10 +55,10 @@ export function Sidebar() {
           <p>
             Every event, right here.
             <br />
-            No API keys required.
+            Any editor. Any AI.
           </p>
           <span>
-            LOCAL SIMULATOR <span className="status-dot" />
+            {mode === 'demo' ? 'LOCAL SIMULATOR' : 'LOCAL OBSERVER'} <span className="status-dot" />
           </span>
         </div>
         <a className="docs-link" href="http://localhost:8000/docs" target="_blank" rel="noreferrer">
@@ -64,7 +66,7 @@ export function Sidebar() {
           <ArrowUpRight size={13} />
         </a>
         <div className="sidebar-footer">
-          CodeWatch<span>V1.0</span>
+          {PRODUCT_NAME}<span>V{PRODUCT_VERSION}</span>
         </div>
       </div>
     </aside>

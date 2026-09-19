@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, Download, Radio, Terminal } from 'lucide-react';
-import type { AgentEvent, CommandResult } from '../types/events';
+import { sourceLabel, type AgentEvent, type CommandResult } from '../types/events';
 import { StatusIcon } from './StatusIcon';
 
 const time = (timestamp: string) =>
@@ -11,11 +11,13 @@ export function EventLog({
   commands,
   runId,
   live,
+  mode,
 }: {
   events: AgentEvent[];
   commands: CommandResult[];
   runId: string | null;
   live: boolean;
+  mode: 'live' | 'demo';
 }) {
   const [tab, setTab] = useState<'events' | 'commands'>('events');
   const [follow, setFollow] = useState(true);
@@ -99,7 +101,7 @@ export function EventLog({
               <div className={`event-row ${event.status}`} key={event.eventId}>
                 <time dateTime={event.timestamp}>{time(event.timestamp)}</time>
                 <span className="event-type">{event.type.replaceAll('_', '.')}</span>
-                <span className="event-message">{event.data.message}</span>
+                <span className="event-message"><span className={`event-source source-${event.source ?? 'simulator'}`}>{sourceLabel(event.source, mode === 'demo')}</span>{event.data.message}</span>
                 <StatusIcon status={event.status} size={12} animate={false} />
               </div>
             ))
@@ -107,7 +109,7 @@ export function EventLog({
             <div className="terminal-empty">
               <span className="terminal-prompt">$</span>
               <span>
-                Waiting for your first build
+                {mode === 'demo' ? 'Waiting for your first build' : 'Waiting for project activity'}
                 <span className="terminal-cursor" />
               </span>
               <small>Agent events will stream here in real time.</small>
@@ -121,6 +123,7 @@ export function EventLog({
                 <code>{command.command}</code>
                 <StatusIcon status={command.status} />
                 <span className={`command-status ${command.status}`}>{command.status}</span>
+                {mode === 'live' && <span className={`event-source source-${command.source ?? 'agent'}`}>{sourceLabel(command.source)}</span>}
               </div>
               {command.output && <pre>{command.output}</pre>}
             </div>
@@ -129,18 +132,18 @@ export function EventLog({
           <div className="terminal-empty">
             <span className="terminal-prompt">$</span>
             <span>No commands yet</span>
-            <small>Simulated terminal commands appear during the build.</small>
+            <small>{mode === 'demo' ? 'Simulated terminal commands appear during the build.' : 'Commands appear when reported by the AI integration or command wrapper.'}</small>
           </div>
         )}
       </div>
       <footer className="event-footer">
         <span>
           <span className={`status-dot ${live ? 'live-dot' : ''}`} />
-          {live ? 'Receiving events' : events.length ? 'End of stream' : 'Ready to connect'}
+          {live ? 'Listening for changes' : events.length ? 'Activity retained' : 'Ready to connect'}
         </span>
         <span>
           {runId ? `${runId.slice(0, 16)}…` : 'No active run'}
-          <span className="footer-separator">/</span>SIMULATED
+          <span className="footer-separator">/</span>{mode === 'demo' ? 'SIMULATED' : 'LIVE PROJECT'}
         </span>
       </footer>
     </section>

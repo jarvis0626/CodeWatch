@@ -11,26 +11,65 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
 from backend.agent.simulator import DEFAULT_EVENT_INTERVAL, simulate_build  # noqa: E402
 from backend.models.events import StartBuild, event_adapter  # noqa: E402
+from backend.observer.manager import WatchManager  # noqa: E402
+from backend.observer.routes import make_router  # noqa: E402
 
 logger = logging.getLogger("codewatch")
-LOCAL_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+LOCAL_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
 
 
-def create_app(*, event_interval: float = DEFAULT_EVENT_INTERVAL) -> FastAPI:
+def create_app(
+    *,
+    event_interval: float = DEFAULT_EVENT_INTERVAL,
+    watch_interval: float = 0.75,
+    project_path: str | None = None,
+    server_url: str = "http://127.0.0.1:8000",
+) -> FastAPI:
+    manager = WatchManager(watch_interval)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        yield
+        if project_path:
+            await manager.start(project_path, "External agent")
+        try:
+            yield
+        finally:
+            await manager.close()
 
-    app = FastAPI(title="CodeWatch", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="CodeWatch", version="0.2.0", lifespan=lifespan)
+    app.state.watch_manager = manager
     origins = os.getenv("CODEWATCH_ALLOWED_ORIGINS", ",".join(LOCAL_ORIGINS)).split(",")
     origins = [origin.strip() for origin in origins if origin.strip()]
-    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET"], allow_headers=["*"])
+    origins = list(dict.fromkeys([*origins, server_url]))
+    app.add_middleware(
+        CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["Content-Type"]
+    )
+
+    @app.middleware("http")
+    async def protect_local_api(request: Request, call_next):
+        origin = request.headers.get("origin")
+        if request.url.path.startswith("/api/") and origin and origin not in origins:
+            return JSONResponse({"detail": "Origin not allowed"}, status_code=403)
+        # Mutations must use JSON, so cross-origin HTML forms cannot attach arbitrary folders.
+        if request.url.path.startswith("/api/") and request.method == "POST":
+            if request.headers.get("content-type", "").split(";")[0] != "application/json":
+                return JSONResponse({"detail": "Use application/json"}, status_code=415)
+        return await call_next(request)
+
+    app.include_router(make_router(manager, origins, server_url))
 
     @app.get("/health")
     async def health():
@@ -85,6 +124,9 @@ def create_app(*, event_interval: float = DEFAULT_EVENT_INTERVAL) -> FastAPI:
                 task.cancel()
             await asyncio.gather(producer, receiver, return_exceptions=True)
 
+    dashboard = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+    if dashboard.is_dir():
+        app.mount("/", StaticFiles(directory=dashboard, html=True), name="dashboard")
     return app
 
 

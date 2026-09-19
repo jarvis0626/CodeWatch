@@ -1,5 +1,5 @@
 import { Check, GitCommitHorizontal, LoaderCircle } from 'lucide-react';
-import { STAGES } from '../types/events';
+import { STAGES, sourceLabel } from '../types/events';
 import type { BuildState } from '../state/build';
 
 const descriptions = {
@@ -16,6 +16,7 @@ const descriptions = {
 export function AgentTimeline({ state }: { state: BuildState }) {
   const complete = state.connection === 'complete';
   const seen = new Set(state.visits.map((visit) => visit.stage));
+  if (state.mode === 'live') return <section className="panel timeline-panel" aria-labelledby="timeline-title"><header className="panel-header"><h2 id="timeline-title"><GitCommitHorizontal size={16} />Activity timeline</h2><span className="tiny-label">{state.visits.length} STAGE UPDATES</span></header>{state.visits.length ? <ol className="timeline live-timeline">{state.visits.map((visit, index) => <li key={visit.sequence} className={index === state.visits.length - 1 ? 'current' : 'visited'} data-stage={visit.stage}><span className="timeline-marker">{index === state.visits.length - 1 ? <GitCommitHorizontal size={11} /> : <Check size={11} />}</span><div><span className="timeline-name">{visit.stage.toLowerCase()}</span><small>{sourceLabel(visit.source)} · {new Date(visit.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small><p>{visit.message}</p></div></li>)}</ol> : <div className="empty-state"><GitCommitHorizontal size={23} /><strong>No stages reported yet</strong><p>Connect the AI integration to see its actual steps as it works.</p></div>}</section>;
   return (
     <section className="panel timeline-panel" aria-labelledby="timeline-title">
       <header className="panel-header">

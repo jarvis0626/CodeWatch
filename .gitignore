@@ -1,6 +1,7 @@
 node_modules/
 .npm-cache/
 *.tsbuildinfo
+*.egg-info/
 dist/
 .venv/
 __pycache__/

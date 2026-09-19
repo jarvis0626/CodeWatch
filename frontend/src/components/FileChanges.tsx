@@ -1,5 +1,5 @@
 import { FileCode2, Files } from 'lucide-react';
-import type { FileChange } from '../types/events';
+import { sourceLabel, type FileChange } from '../types/events';
 
 export function FileChanges({ files }: { files: FileChange[] }) {
   return (
@@ -16,7 +16,7 @@ export function FileChanges({ files }: { files: FileChange[] }) {
           <div className="empty-state">
             <FileCode2 size={23} />
             <strong>A clean slate</strong>
-            <p>Created and modified files will appear here.</p>
+            <p>Created, modified, and deleted files will appear here.</p>
           </div>
         )}
         {files.map((file) => {
@@ -25,14 +25,14 @@ export function FileChanges({ files }: { files: FileChange[] }) {
           return (
             <div className={`file-row ${file.kind}`} key={file.eventId}>
               <span className="file-operation" aria-label={file.kind}>
-                {file.kind === 'created' ? '+' : '~'}
+                {file.kind === 'created' ? '+' : file.kind === 'deleted' ? '−' : '~'}
               </span>
               <FileCode2 size={14} />
               <div title={file.path}>
                 <span>{name}</span>
-                <small>{parts.join('/')}/</small>
+                <small>{parts.join('/')}/ · {sourceLabel(file.source, !file.source)}</small>
               </div>
-              <span className="file-kind">{file.kind === 'created' ? 'NEW' : 'EDIT'}</span>
+              <span className="file-kind">{file.kind === 'created' ? 'NEW' : file.kind === 'deleted' ? 'DELETED' : 'EDIT'}</span>
             </div>
           );
         })}

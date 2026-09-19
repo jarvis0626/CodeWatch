@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Clock3, Info, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, Clock3, FlaskConical, Info, Radio, TriangleAlert } from 'lucide-react';
 import { BuildHeader, Topbar } from './components/BuildHeader';
 import { Sidebar } from './components/Sidebar';
 import { BuildStats } from './components/BuildStats';
@@ -11,12 +11,19 @@ import { TestResults } from './components/TestResults';
 import { EventLog } from './components/EventLog';
 import { useAgentEvents } from './hooks/useAgentEvents';
 import { DEFAULT_PROMPT } from './config';
+import { useLiveEvents } from './hooks/useLiveEvents';
+import { IntegrationPanel, ProjectConnection } from './components/ProjectConnection';
 
 export default function App() {
-  const { state, start, reset } = useAgentEvents();
+  const [mode, setMode] = useState<'live' | 'demo'>('live');
+  const demo = useAgentEvents();
+  const monitor = useLiveEvents();
+  const { start, reset } = demo;
+  const state = mode === 'live' ? monitor.state : demo.state;
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [now, setNow] = useState(Date.now());
-  const live = state.connection === 'streaming';
+  const live = state.connection === 'streaming' && (mode === 'demo' || !!state.session?.watching);
+  const error = mode === 'live' ? monitor.requestError || state.error : state.error;
   useEffect(() => {
     if (!live) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -32,22 +39,24 @@ export default function App() {
     <>
       <Topbar connection={state.connection} />
       <div className="app-shell">
-        <Sidebar />
+        <Sidebar mode={mode} session={state.session} />
         <main>
-          <BuildHeader
+          <div className="workspace-toolbar"><span className="eyebrow">CODEWATCH / OBSERVATORY</span><div className="mode-switch" role="group" aria-label="Workspace mode"><button className={mode === 'live' ? 'active' : ''} aria-pressed={mode === 'live'} onClick={() => { reset(); setMode('live'); }}><Radio size={12} />Live project</button><button className={mode === 'demo' ? 'active' : ''} aria-pressed={mode === 'demo'} onClick={() => setMode('demo')}><FlaskConical size={12} />Demo</button></div></div>
+          {mode === 'live' ? <ProjectConnection session={state.session} busy={monitor.busy} watch={monitor.watch} stop={monitor.stop} /> : <BuildHeader
             prompt={prompt}
             setPrompt={setPrompt}
             connection={state.connection}
             start={() => start(prompt)}
             reset={reset}
-          />
-          {state.error && (
+          />}
+          {error && (
             <div className="notice error-notice" role="alert">
               <TriangleAlert size={16} />
-              <span>{state.error}</span>
-              <button onClick={() => start(prompt)}>Try again</button>
+              <span>{error}</span>
+              {mode === 'demo' && <button onClick={() => start(prompt)}>Try again</button>}
             </div>
           )}
+          {mode === 'live' && <IntegrationPanel />}
           {state.connection === 'complete' && (
             <div className="notice success-notice" role="status">
               <CheckCircle2 size={16} />
@@ -62,12 +71,12 @@ export default function App() {
             <span>
               <span className={`status-dot ${live ? 'live-dot' : ''}`} />
               {live
-                ? 'BUILD IN PROGRESS'
+                ? mode === 'live' ? 'WATCHING FOR CHANGES' : 'BUILD IN PROGRESS'
                 : state.connection === 'complete'
                   ? 'BUILD COMPLETE'
                   : state.connection === 'error'
-                    ? 'BUILD INTERRUPTED'
-                    : 'BUILD OBSERVATORY'}
+                    ? 'RECONNECTING'
+                    : mode === 'live' ? state.session ? 'WATCHER STOPPED' : 'CONNECT YOUR PROJECT' : 'BUILD OBSERVATORY'}
             </span>
             <span>
               <Clock3 size={12} />
@@ -83,6 +92,8 @@ export default function App() {
               edges={state.edges}
               live={live}
               runId={state.runId}
+              projectName={mode === 'demo' ? 'todo-app' : state.session?.projectName}
+              mode={mode}
             />
             <div className="agent-column">
               <CurrentAction state={state} />
@@ -90,7 +101,7 @@ export default function App() {
             </div>
             <div className="detail-grid">
               <FileChanges files={state.files} />
-              <TestResults tests={state.tests} />
+              <TestResults tests={state.tests} mode={mode} />
             </div>
             <EventLog
               key={`log-${state.runId ?? 'idle'}`}
@@ -98,12 +109,13 @@ export default function App() {
               commands={state.commands}
               runId={state.runId}
               live={live}
+              mode={mode}
             />
           </div>
           <footer className="main-footer">
             <span>
               <Info size={12} />
-              This is a simulation. Files, commands, and test results are illustrative.
+              {mode === 'demo' ? 'This is a simulation. Files, commands, and test results are illustrative.' : 'Observed changes and agent reports are labeled separately. CodeWatch runs on your machine.'}
             </span>
             <span>Built to make the invisible visible.</span>
           </footer>

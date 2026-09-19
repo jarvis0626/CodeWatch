@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentEventSchema } from '../types/events';
+import { agentEventSchema, liveFrameSchema, type SessionInfo } from '../types/events';
 import { buildReducer, initialState } from './build';
 import type { BuildState } from './build';
 
@@ -102,5 +102,76 @@ describe('build event consumer', () => {
       connection: 'connecting',
       startedAt: 2,
     });
+  });
+});
+
+const session: SessionInfo = {
+  runId: 'run-1', projectPath: 'D:/Projects/example', projectName: 'example',
+  agentName: 'External agent', watching: true, connectedAt: '2026-09-15T12:00:00Z',
+  lastActivityAt: '2026-09-15T12:00:00Z', eventCount: 0, trackedFiles: 1,
+  filesTouched: 0, warnings: [],
+};
+const live = () => buildReducer(initialState('live'), { type: 'session', session });
+describe('live project state', () => {
+  it('retains the latest meaningful activity when graph housekeeping arrives', () => {
+    let state = receive(live(), 'agent_stage', { stage: 'IMPLEMENTING', message: 'Building the login API' }, { source: 'agent', agentName: 'My assistant' });
+    const current = state.current;
+    state = receive(state, 'graph_node_added', { id: 'login', label: 'Login', kind: 'api', state: 'active', description: null }, { source: 'filesystem' });
+    state = receive(state, 'graph_node_updated', { nodeId: 'login', state: 'completed' }, { source: 'system' });
+    expect(state.current).toBe(current);
+    expect(state.nodes).toHaveLength(1);
+    expect(state.visits[0].source).toBe('agent');
+  });
+  it('keeps monitoring after the agent reports completion', () => {
+    let state = receive(live(), 'build_complete', { filesTouched: 1, testsPassed: 0, testsTotal: 0 }, { source: 'agent', status: 'completed' });
+    expect(state.connection).toBe('streaming');
+    expect(state.finishedAt).toBeNull();
+    state = receive(state, 'file_modified', { path: 'main.py', nodeId: 'main' }, { source: 'filesystem' });
+    expect(state.files).toHaveLength(1);
+  });
+  it('removes a deleted node and its edges while preserving file history', () => {
+    let state = receive(live(), 'graph_node_added', { id: 'main', label: 'Main', kind: 'module', state: 'completed' });
+    state = receive(state, 'graph_edge_added', { id: 'connection', source: 'main', target: 'api', label: 'imports', evidence: 'import' });
+    state = receive(state, 'file_modified', { path: 'main.py', nodeId: 'main' }, { source: 'filesystem' });
+    state = receive(state, 'file_deleted', { path: 'main.py', nodeId: 'main' }, { source: 'filesystem' });
+    state = receive(state, 'graph_node_removed', { nodeId: 'main' });
+    expect(state.nodes).toEqual([]);
+    expect(state.edges).toEqual([]);
+    expect(state.files.map((file) => file.kind)).toEqual(['deleted', 'modified']);
+  });
+  it('restores retained test/stage state and canonical graph from a reconnect snapshot', () => {
+    let historical = receive(live(), 'test_passed', { name: 'test_login', nodeId: 'tests', attempt: 1 }, { source: 'agent', status: 'completed' });
+    historical = receive(historical, 'agent_stage', { stage: 'VALIDATING' }, { source: 'agent' });
+    const latest = receive(historical, 'file_modified', { path: 'main.py', nodeId: 'main' }, { source: 'filesystem', sequence: 800, eventId: 'event-800' }).events.at(-1)!;
+    const snapshot = {
+      kind: 'snapshot', session: { ...session, eventCount: 800 }, retainedEvents: historical.events,
+      events: [latest], graph: { nodes: [{ id: 'old', label: 'Indexed before history retention', kind: 'module', state: 'completed', message: 'Indexed', description: null }], edges: [] },
+    };
+    const frame = liveFrameSchema.parse(snapshot);
+    if (frame.kind !== 'snapshot') throw new Error('Expected snapshot');
+    const state = buildReducer(initialState('live'), { type: 'snapshot', ...frame });
+    expect(state.tests.test_login.status).toBe('passed');
+    expect(state.stage).toBe('VALIDATING');
+    expect(state.agentReport?.data.message).toBe('Event');
+    expect(state.nodes[0].id).toBe('old');
+    expect(state.events).toEqual([latest]);
+    expect(state.current?.eventId).toBe('event-800');
+    expect(state.session?.eventCount).toBe(800);
+  });
+  it('replaces every panel when a new project session arrives', () => {
+    const previous = receive(live(), 'file_modified', { path: 'main.py', nodeId: 'main' });
+    const next = buildReducer(previous, { type: 'session', session: { ...session, runId: 'run-2', projectName: 'other' } });
+    expect(next.runId).toBe('run-2');
+    expect(next.events).toEqual([]);
+    expect(next.files).toEqual([]);
+    expect(next.nodes).toEqual([]);
+    expect(buildReducer(next, { type: 'event', event: previous.events[0] })).toBe(next);
+  });
+  it('retains the current project and activity during transport failures', () => {
+    const previous = receive(live(), 'file_modified', { path: 'main.py', nodeId: 'main' });
+    const disconnected = buildReducer(previous, { type: 'transport', connection: 'error', error: 'Reconnecting' });
+    expect(disconnected.files).toEqual(previous.files);
+    expect(disconnected.session).toEqual(previous.session);
+    expect(disconnected.finishedAt).toBeNull();
   });
 });

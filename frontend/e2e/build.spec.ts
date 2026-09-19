@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
-test('real streamed build fails, debugs, passes, exports, and runs again', async ({ page }) => {
+test('demo streamed build fails, debugs, passes, exports, and runs again', async ({ page }) => {
   const errors: string[] = [];
   const runIds = new Set<string>();
   const arrivals: number[] = [];
@@ -15,12 +15,13 @@ test('real streamed build fails, debugs, passes, exports, and runs again', async
     });
   });
   await page.goto('/');
+  await page.getByRole('button', { name: 'Demo', exact: true }).click();
   await mkdir('../docs', { recursive: true });
   await page.screenshot({ path: '../docs/codewatch-idle.png', fullPage: true });
   await expect(page.getByTestId('node-agent')).toHaveAttribute('data-state', 'planned');
   await page.getByRole('button', { name: 'Start Build' }).click();
   await expect(page.getByTestId('current-stage')).toHaveText('PLANNING');
-  await expect(page.getByRole('button', { name: 'Building…' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Building/ })).toBeDisabled();
   await expect(page.getByTestId('node-frontend')).toBeVisible();
   await expect(page.getByTestId('node-tests')).toHaveAttribute('data-state', 'failed', {
     timeout: 30_000,
@@ -76,6 +77,7 @@ test('real streamed build fails, debugs, passes, exports, and runs again', async
 
 test('reset cancels an active stream and a fresh run can start', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: 'Demo', exact: true }).click();
   await page.getByRole('button', { name: 'Start Build' }).click();
   await expect(page.getByTestId('node-frontend')).toBeVisible();
   await page.getByRole('button', { name: 'Reset', exact: true }).click();
@@ -93,6 +95,7 @@ test('malformed events produce a recoverable error', async ({ page }) => {
     ws.onMessage(() => ws.send('{"type":"file_created","data":{}}')),
   );
   await page.goto('/');
+  await page.getByRole('button', { name: 'Demo', exact: true }).click();
   await page.getByRole('button', { name: 'Start Build' }).click();
   await expect(page.getByRole('alert')).toContainText('invalid event');
   await expect(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
@@ -103,6 +106,7 @@ test('malformed events produce a recoverable error', async ({ page }) => {
 test('mobile layout fits the viewport and build controls work', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await page.getByRole('button', { name: 'Demo', exact: true }).click();
   const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(fits).toBe(true);
   await page.screenshot({ path: '../docs/codewatch-mobile.png', fullPage: true });

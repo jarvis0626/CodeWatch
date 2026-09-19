@@ -1,3 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codewatch-live"
+version = "0.2.0"
+description = "Local project and coding-agent observability"
+requires-python = ">=3.12"
+dependencies = ["fastapi>=0.115,<1", "uvicorn[standard]>=0.34,<1", "pydantic>=2.10,<3", "pathspec>=0.12,<1", "mcp>=1.12,<2"]
+
+[project.scripts]
+codewatch = "backend.cli:main"
+codewatch-mcp = "backend.mcp_server:main"
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+exclude = ["backend.tests*"]
+
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 pythonpath = ["."]
@@ -9,4 +28,3 @@ extend-exclude = [".venv", "node_modules"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
-

@@ -7,13 +7,13 @@ export function BuildStats({ state }: { state: BuildState }) {
   const stats = [
     {
       label: 'Files touched',
-      value: new Set(state.files.map((file) => file.path)).size,
+      value: state.session?.filesTouched ?? new Set(state.files.map((file) => file.path)).size,
       icon: FileCode2,
       detail: 'in this run',
     },
     {
       label: 'Events received',
-      value: state.events.length.toString().padStart(2, '0'),
+      value: (state.session?.eventCount ?? state.events.length).toString().padStart(2, '0'),
       icon: Radio,
       detail: state.connection === 'streaming' ? 'streaming live' : 'universal events',
     },
@@ -25,7 +25,7 @@ export function BuildStats({ state }: { state: BuildState }) {
         ? 'failure detected'
         : tests.length
           ? 'latest results'
-          : 'awaiting test suite',
+          : state.mode === 'live' ? 'no results reported' : 'awaiting test suite',
     },
     {
       label: 'Architecture nodes',

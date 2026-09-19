@@ -10,7 +10,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import type { Connection } from '../state/build';
-import { PRODUCT_NAME } from '../config';
+import { PRODUCT_NAME, PRODUCT_VERSION } from '../config';
 
 interface Props {
   prompt: string;
@@ -28,7 +28,7 @@ export function Topbar({ connection }: { connection: Connection }) {
           <Code2 size={21} />
         </span>
         {PRODUCT_NAME}
-        <span className="version">v1</span>
+        <span className="version">v{PRODUCT_VERSION}</span>
       </a>
       <div className="topbar-divider" />
       <span className="workspace-name">Personal workspace</span>

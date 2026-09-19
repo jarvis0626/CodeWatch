@@ -15,7 +15,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
-  webServer: [
+  webServer: process.env.CODEWATCH_E2E_EXTERNAL ? undefined : [
     {
       command:
         process.platform === 'win32'
