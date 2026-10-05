@@ -1,11 +1,13 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, screen, session } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, Notification, screen, session, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 const { createPhoneTunnel } = require('./phone-tunnel.cjs');
+const { createCompletionNotifier } = require('./completion-notifications.cjs');
+const { createWindowsNotificationRegistration } = require('./windows-notifications.cjs');
 const tunnelManifest = require('./cloudflared.json');
 
 app.setName('CodeWatch');
@@ -14,10 +16,15 @@ const smoke = process.argv.includes('--smoke-test');
 if (smoke && process.env.CODEWATCH_TEST_USER_DATA) {
   app.setPath('userData', path.resolve(process.env.CODEWATCH_TEST_USER_DATA));
 }
-app.setAppUserModelId('local.codewatch.desktop');
+const smokeProfileId = crypto.createHash('sha256').update(app.getPath('userData')).digest('hex').slice(0, 16);
+const applicationId = smoke ? `local.codewatch.desktop.smoke.${smokeProfileId}` : 'local.codewatch.desktop';
+const smokeIdentity = crypto.createHash('sha256').update(applicationId).digest('hex').slice(0, 32);
+const toastActivatorClsid = smoke ? `{${smokeIdentity.slice(0, 8)}-${smokeIdentity.slice(8, 12)}-${smokeIdentity.slice(12, 16)}-${smokeIdentity.slice(16, 20)}-${smokeIdentity.slice(20)}}` : '{56F538D7-F88A-4507-B0B3-A251D6F85149}';
+app.setAppUserModelId(applicationId);
+app.setToastActivatorCLSID(toastActivatorClsid);
 const owned = app.requestSingleInstanceLock();
 if (!owned) app.quit();
-let window, tray, child, endpoint, quitting = false, stopped = false, stopping, phoneTunnel;
+let window, tray, child, endpoint, quitting = false, stopped = false, stopping, phoneTunnel, completionNotifier;
 let backendReady = false, showRequested = false;
 let settings = { alwaysOnTop: false, closeToTray: false, compact: false, tutorialCompleted: false };
 let changingLayout = false;
@@ -26,6 +33,65 @@ const userData = app.getPath('userData');
 const discovery = path.join(userData, 'desktop-connection.json');
 const preferencesFile = path.join(userData, 'preferences.json');
 const logFile = path.join(userData, 'logs', 'desktop.log');
+const activeNotifications = new Set();
+const notificationState = { attempted: 0, shown: 0, failed: 0, shortcut: false, activationRepaired: false };
+let notificationRegistration;
+
+function appIcon() { return nativeImage.createFromPath(path.join(__dirname, 'assets', 'codewatch.png')); }
+
+function registerNotifications() {
+  // Windows toasts require a per-user Start Menu identity. The shortcut points to
+  // the original portable file, never its temporary extraction directory.
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  notificationRegistration = createWindowsNotificationRegistration({ app, shell, userData,
+    executable: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath,
+    icon: path.join(__dirname, 'assets', 'codewatch.ico'), applicationId, toastActivatorClsid, smoke, log });
+  notificationState.shortcut = notificationRegistration.register();
+}
+
+function showCompletionNotification(value) {
+  if (quitting || !Notification.isSupported()) return;
+  notificationState.attempted++;
+  try {
+    const notification = new Notification({ title: value.title, body: value.body, icon: appIcon(),
+      timeoutType: 'default', silent: false });
+    activeNotifications.add(notification);
+    notification.once('show', () => { notificationState.shown++;
+      void notificationRegistration?.repair().then(() => {
+        notificationState.activationRepaired = notificationRegistration.state.repaired;
+      }); });
+    notification.once('failed', () => { notificationState.failed++; activeNotifications.delete(notification);
+      log('Windows did not display a completion notification. Check notification settings.'); });
+    notification.once('close', () => activeNotifications.delete(notification));
+    notification.once('click', () => { activeNotifications.delete(notification); openFullApp(); });
+    notification.show();
+    if (window && !window.isDestroyed() && !window.isFocused()) window.flashFrame(true);
+  } catch { notificationState.failed++; log('Windows completion notification is unavailable.'); }
+}
+
+async function startCompletionNotifications() {
+  registerNotifications();
+  const supported = Notification.isSupported();
+  if (supported && process.platform === 'win32') Notification.handleActivation(() => {
+    if (window && !window.isDestroyed()) openFullApp(); else show();
+  });
+  if (supported && notificationRegistration) {
+    await notificationRegistration.repair();
+    notificationState.activationRepaired = notificationRegistration.state.repaired;
+  }
+  completionNotifier = createCompletionNotifier({
+    request: async signal => {
+      const response = await fetch(endpoint + '/api/notifications', {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
+      });
+      if (!response.ok) throw new Error('Completion feed unavailable');
+      return response.json();
+    },
+    notify: showCompletionNotification, log,
+  });
+  await completionNotifier.start();
+}
 
 function log(message) {
   // Logging must never interrupt service shutdown or turn a handled error into a crash.
@@ -294,6 +360,7 @@ async function openWindow() {
   window = new BrowserWindow({
     ...restoredBounds, minWidth: Math.min(settings.compact ? 440 : 380, restoredBounds.width), minHeight: Math.min(500, restoredBounds.height),
     title: 'CodeWatch', backgroundColor: '#111413',
+    icon: appIcon(),
     show: false, alwaysOnTop: settings.alwaysOnTop,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), session: rendererSession,
       contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, webviewTag: false },
@@ -311,6 +378,7 @@ async function openWindow() {
   window.on('resize', rememberBounds); window.on('move', rememberBounds);
   window.on('maximize', rememberBounds); window.on('unmaximize', rememberBounds);
   window.on('closed', () => { window = undefined; });
+  window.on('focus', () => window?.flashFrame(false));
   window.webContents.on('render-process-gone', () => { log('Renderer process stopped'); app.quit(); });
   await window.loadURL(endpoint);
   if (!smoke || showRequested) show();
@@ -327,6 +395,10 @@ function rememberBounds() {
   }
 }
 async function stopBackend() {
+  await completionNotifier?.close();
+  for (const notification of activeNotifications) notification.close();
+  activeNotifications.clear();
+  await notificationRegistration?.close();
   await phoneTunnel?.close();
   if (stopping) return stopping;
   if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return;
@@ -340,19 +412,7 @@ async function stopBackend() {
   return stopping;
 }
 function trayImage() {
-  // An opaque lime C stays visible on both light and dark Windows taskbars.
-  const size = 16;
-  const pixels = Buffer.alloc(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const distance = Math.hypot(x - 7.5, y - 7.5);
-      if (distance < 4 || distance > 7 || (x > 8 && y > 4 && y < 11)) continue;
-      const offset = (y * size + x) * 4;
-      // nativeImage bitmaps use BGRA pixels.
-      pixels[offset] = 77; pixels[offset + 1] = 232; pixels[offset + 2] = 192; pixels[offset + 3] = 255;
-    }
-  }
-  return nativeImage.createFromBitmap(pixels, { width: size, height: size });
+  return appIcon().resize({ width: 16, height: 16 });
 }
 if (owned) {
   app.on('second-instance', openFullApp);
@@ -371,9 +431,10 @@ if (owned) {
     if (quitting) return;
     registerIPC(); await openWindow();
     if (quitting) return;
+    await startCompletionNotifications();
     tray = new Tray(trayImage()); tray.setToolTip('CodeWatch'); tray.on('double-click', show); updateTray();
     if (smoke) {
-      await require('./smoke.cjs')({ app, window, child, endpoint, token, discovery });
+      await require('./smoke.cjs')({ app, window, child, endpoint, token, discovery, completionNotifier, notificationState, notificationRegistration });
       app.quit();
     }
   }).catch(error => {

@@ -29,6 +29,18 @@
 .phone-viewer .file-panel, .phone-viewer .test-panel { margin-bottom: 18px; }
 .phone-viewer footer { margin-top: 24px; color: #91a499; font-size: 11px; line-height: 1.7; }
 .phone-connecting { display: flex; align-items: center; gap: 12px; padding: 35px 10px; color: #b8d3c2; font-size: 13px; }
+.phone-notifications, .phone-pair-form { border: 1px solid #395442; border-radius: 8px; padding: 18px; margin-bottom: 18px; background: #17221a; }
+.phone-notifications h2, .phone-pair-form h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 10px; font-size: 14px; color: #d5e8dc; }
+.phone-notifications p, .phone-pair-form p { color: #b3c9bb; font-size: 12px; line-height: 1.7; margin: 8px 0 12px; }
+.phone-notifications small { display: block; font-size: 11px; line-height: 1.7; color: #91a998; margin-top: 12px; }
+.phone-notification-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 13px; }
+.phone-notification-actions > span { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #b6e1c6; }
+.phone-notification-actions button { display: inline-flex; align-items: center; gap: 7px; }
+.phone-install-help { border-left: 2px solid #8ad6b0; padding: 4px 0 4px 13px; }
+.phone-install-help strong { font-size: 12px; }
+.phone-alert-error { color: #f1b9ab !important; }
+.phone-pair-form label { display: block; font-size: 12px; margin: 12px 0 7px; }
+.phone-pair-form input { display: block; width: 100%; border: 1px solid #42634e; border-radius: 5px; background: #101a13; color: #d7e9dd; padding: 11px; font-size: 12px; margin-bottom: 12px; }
 @media (max-width: 680px) {
   .phone-share-content { flex-direction: column; align-items: stretch; padding: 18px; }
   .phone-qr { flex-basis: auto; }

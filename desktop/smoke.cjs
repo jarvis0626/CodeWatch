@@ -6,7 +6,7 @@ const path = require('node:path');
 const { BrowserWindow } = require('electron');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-module.exports = async function smoke({ app, window, endpoint, token, discovery }) {
+module.exports = async function smoke({ app, window, endpoint, token, discovery, completionNotifier, notificationState, notificationRegistration }) {
   const resultPath = process.env.CODEWATCH_SMOKE_RESULT;
   const project = process.env.CODEWATCH_SMOKE_PROJECT;
   if (!resultPath || !project || !process.env.CODEWATCH_TEST_USER_DATA) throw new Error('Smoke test requires disposable paths');
@@ -141,9 +141,30 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     const sourceTimestamp = await web.executeJavaScript('window.__codewatchSmokeEvent');
     const eventToRenderMs = Math.max(0, renderedAt - sourceTimestamp);
     checks.push('Actual saved file reaches dashboard');
+    await completionNotifier.poll();
+    window.hide();
     await request('/api/agent/complete', { runId: watched.runId, agentName: 'Packaged smoke test',
       message: 'Fixture work is complete and its file connection is visible' });
-    await delay(150);
+    await completionNotifier.poll();
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (notificationState.shown > 0 || notificationState.failed > 0) break;
+      await delay(100);
+    }
+    assert.equal(notificationState.shortcut, true, 'Windows toast identity is registered');
+    assert.equal(notificationState.attempted, 1, 'Stage and completion pair sends one native notification');
+    assert.equal(notificationState.failed, 0, 'Windows accepted the native completion toast');
+    assert.equal(notificationState.shown, 1, 'Native completion notification showed with the window hidden');
+    await notificationRegistration.repair();
+    assert.equal(notificationRegistration.state.repaired, true, 'Notification activation targets the original portable EXE');
+    await completionNotifier.poll();
+    assert.equal(notificationState.attempted, 1, 'Replaying the feed does not duplicate the notification');
+    window.show();
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (await web.executeJavaScript(`!!document.querySelector('[data-testid="completion-notice"]')`)) break;
+      await delay(100);
+    }
+    assert.ok(await web.executeJavaScript(`document.querySelector('[data-testid="completion-notice"]').innerText.includes('Fixture work is complete')`));
+    checks.push('Fresh reported completion displays one native Windows toast while hidden and an in-app notification');
     const screenshot = await web.capturePage();
     fs.writeFileSync(path.join(path.dirname(resultPath), 'desktop-window.png'), screenshot.toPNG());
     const exportPath = path.join(path.dirname(resultPath), 'exported-events.ndjson');
@@ -192,6 +213,13 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     assert.equal(window.getBounds().width, fullBounds.width); assert.equal(window.getBounds().height, fullBounds.height);
     assert.ok(await web.executeJavaScript(`document.querySelector('[data-testid="flow-step-details"]').innerText.includes('fixture.py')`));
     checks.push('Pin opens the compact connected flow; step details and full-window restoration preserve selection');
+    await web.executeJavaScript(`document.querySelector('.flow-step.is-selected').click()`);
+    await delay(100);
+    assert.equal(await web.executeJavaScript(`!!document.querySelector('[data-testid="flow-step-details"]')`), false);
+    await web.executeJavaScript(`document.querySelector('.flow-step.is-selected').click()`);
+    await delay(100);
+    assert.equal(await web.executeJavaScript(`!!document.querySelector('[data-testid="flow-step-details"]')`), true);
+    checks.push('Selecting the same work card closes its details and selecting again reopens them');
     const rejected = await web.executeJavaScript(`window.codewatchDesktop.setPreferences({bad:'value'}).then(()=>false,()=>true)`);
     assert.equal(rejected, true);
     checks.push('Validated native preferences and always-on-top work');
@@ -217,6 +245,12 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
       }
       assert.equal(phone.ready, true); assert.equal(phone.steps, 3); assert.equal(phone.hash, '');
       assert.equal(phone.native, false); assert.equal(phone.overflow, false);
+      const phonePush = await phoneWeb.executeJavaScript(`fetch('/api/push/status').then(response => response.json())`);
+      assert.equal(phonePush.enabled, false);
+      assert.equal(typeof phonePush.publicKey, 'string', phonePush.error);
+      assert.equal(phonePush.publicKey.length, 87, 'Bundled cryptographic Web Push modules generate a browser application key');
+      assert.equal((await fetch(phoneUrl.origin + '/phone-sw.js', { signal: AbortSignal.timeout(10000) })).status, 200);
+      assert.equal((await fetch(phoneUrl.origin + '/phone.webmanifest', { signal: AbortSignal.timeout(10000) })).status, 200);
       assert.ok(phone.text.includes('Fixture work is complete'));
       assert.ok(!phone.text.includes(project));
       const phoneCookies = await phoneWeb.session.cookies.get({ url: phoneUrl.origin });
@@ -250,7 +284,7 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     checks.push('Close-to-tray, show, minimize and restore work');
     await web.executeJavaScript(`window.codewatchDesktop.setPreferences({alwaysOnTop:false,closeToTray:false})`);
     fs.writeFileSync(resultPath, JSON.stringify({ ok: true, checks, eventToRenderMs, savedFileToRenderMs, elapsedMs: Date.now() - started,
-      versions: process.versions, endpoint, helper: config.command }, null, 2));
+      versions: process.versions, endpoint, helper: config.command, notifications: notificationState }, null, 2));
   } catch (error) {
     phoneWindow?.destroy();
     fs.writeFileSync(resultPath, JSON.stringify({ ok: false, checks, error: error.stack || error.message }, null, 2));

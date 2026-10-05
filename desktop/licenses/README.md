@@ -7,3 +7,7 @@ License: Apache-2.0, reproduced in cloudflared-LICENSE.txt.
 The QR encoder is node-qrcode 1.5.4 by Ryan Day and contributors, distributed
 under the MIT license reproduced in qrcode-LICENSE.txt.
 Source: https://github.com/soldair/node-qrcode
+
+Optional phone background notifications use unmodified pywebpush, py-vapid and
+their Python transport dependencies. Their license notices and source links are
+included in [phone-push](phone-push/README.md).

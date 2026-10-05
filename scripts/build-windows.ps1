@@ -21,6 +21,8 @@ try {
     }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-tunnel.ps1
     if ($LASTEXITCODE -ne 0) { throw 'Preparing the bundled phone connector failed.' }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/generate-icon.ps1
+    if ($LASTEXITCODE -ne 0) { throw 'Generating the Windows application icon failed.' }
     & npm.cmd --prefix frontend run build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
     & $taskPython -m PyInstaller --noconfirm --clean --distpath build/sidecar --workpath build/pyinstaller desktop/sidecar.spec

@@ -29,6 +29,22 @@ def make_router(
     async def session():
         return {"session": manager.current.info() if manager.current else None}
 
+    @router.get("/api/notifications")
+    async def notifications():
+        """Small local feed for native alerts, independent of a hidden renderer."""
+        current = manager.current
+        if not current:
+            return {"session": None, "sequence": 0, "events": []}
+        events = {event["eventId"]: event for event in
+                  [*current.activity_history, *current.stage_history, *current.retained.values()]
+                  if event["source"] == "agent" and event["type"] in {"agent_stage", "build_complete"}}
+        return {
+            "session": {"runId": current.run_id, "projectName": current.root.name,
+                        "watching": current.watching},
+            "sequence": current.factory.sequence,
+            "events": sorted(events.values(), key=lambda event: event["sequence"]),
+        }
+
     @router.post("/api/watch")
     async def watch(body: WatchRequest):
         try:

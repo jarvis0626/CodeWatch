@@ -92,8 +92,15 @@ test('a paired phone follows real reported work with a private cookie and a limi
     await expect(page.locator('.flow-step-completed')).toHaveCount(3);
     await expect(page.getByTestId('flow-connector')).toHaveCount(2);
     await expect(page.getByTestId('test-test_app_data')).toHaveAttribute('data-status', 'passed');
+    await expect(page.getByTestId('completion-notice')).toContainText('App data work is complete');
+    await page.locator('.flow-step').filter({ hasText: 'App data work is complete' }).click();
+    await expect(page.getByTestId('flow-step-details')).toContainText('Work reported complete');
+    await page.locator('.flow-step').filter({ hasText: 'App data work is complete' }).click();
+    await expect(page.getByTestId('flow-step-details')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Dismiss completion notification', exact: true }).click();
     await page.reload();
     await expect(page.locator('.flow-step-completed')).toHaveCount(3);
+    await expect(page.getByTestId('completion-notice')).toHaveCount(0);
     await expect(page.getByTestId('flow-current-report')).toContainText('App data work is complete');
     expect(new URL(page.url()).hash).toBe('');
     await page.setViewportSize({ width: 430, height: 932 });

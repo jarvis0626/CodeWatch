@@ -54,7 +54,7 @@ def create_app(
             await phone_share.close()
             await manager.close()
 
-    app = FastAPI(title="CodeWatch", version="0.4.0", lifespan=lifespan)
+    app = FastAPI(title="CodeWatch", version="0.5.0", lifespan=lifespan)
     app.state.watch_manager = manager
     app.state.phone_share = phone_share
     origins = os.getenv("CODEWATCH_ALLOWED_ORIGINS", ",".join(LOCAL_ORIGINS)).split(",")

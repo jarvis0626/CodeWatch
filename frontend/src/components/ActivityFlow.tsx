@@ -92,6 +92,7 @@ export function ActivityFlow({ state, compact = false, onSelectFile }: ActivityF
   }, [selectedId, followCurrent, compact]);
 
   function selectStep(step: ActivityStep) {
+    if (showDetails && selectedStep?.id === step.id) { setDetailsOpen(false); return; }
     setSelection({ runId: state.runId, id: step.id }); setFollowCurrent(false); setDetailsOpen(true);
   }
   function toggleFollow() {

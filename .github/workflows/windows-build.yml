@@ -34,11 +34,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm.cmd --prefix frontend test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs
+          node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs desktop/completion-notifications.test.cjs desktop/windows-notifications.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Packaged smoke without developer runtimes on PATH
         shell: pwsh
         run: ./scripts/smoke-windows.ps1
+      - name: Verify portable and inner executable icons
+        shell: pwsh
+        run: node scripts/verify-windows-icons.cjs
       - name: Frozen MCP protocol verification
         shell: pwsh
         run: backend/.venv/Scripts/python.exe scripts/verify-packaged-mcp.py

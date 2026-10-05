@@ -15,8 +15,8 @@ Durable replay and native vendor hooks remain separate work.
 
 ## Run the app
 
-Download the executable from the [v0.4.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.4.0),
-or build `dist/windows/CodeWatch-0.4.0-x64-portable.exe` locally. Copy it to a Windows x64
+Download the executable from the [v0.5.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.5.0),
+or build `dist/windows/CodeWatch-0.5.0-x64-portable.exe` locally. Copy it to a Windows x64
 machine and double-click it. Click **Choose folder** to start watching. Use
 **Connect your AI** for MCP configuration and reporting instructions.
 
@@ -31,6 +31,12 @@ or skipping the short tutorial saves that choice in the stable Windows profile,
 so it stays dismissed after restarting. **Phone view** is optional and starts off;
 it bundles its own connector and needs internet on both the PC and phone.
 [Phone setup and limitations](phone-view.md).
+
+Fresh completion reports trigger an in-app notification and a Windows toast,
+including while the window is hidden. Windows registration adds a per-user Start
+Menu shortcut with the app icon, and keeps notification activation pointed at
+the original portable executable. Phone push alerts require permission in the
+paired browser; on iPhone, use the installed Home Screen view.
 
 The native window is resizable. **Always on top** opens the compact work flow;
 **Open full app** restores the full dashboard while keeping it pinned. Full and
@@ -236,6 +242,73 @@ The [v0.4.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.4.0
 distributes the source and portable executable. Quit the previous app before
 opening this file; there is no automatic updater.
 
+## Icons and completion notifications: v0.5.0
+
+The portable launcher and inner desktop executable embed the CodeWatch icon at
+16, 24, 32, 48, 64, 128 and 256 pixels. The running window, tray and notifications
+use the same mark; phone Home Screen icons use 192 and 512 pixels. The build renders
+them from `frontend/public/favicon.svg` using Windows drawing APIs, with no image
+service or extra runtime dependency.
+
+Fresh agent completion reports show one in-app notice and one native Windows
+notification. Native detection runs in the main process while the window is
+hidden. Reload/reconnect history and the paired COMPLETE/build events do not
+create duplicate alerts; a new reported task rearms them. Selecting a work card
+again closes its details.
+
+Phone completion alerts use encrypted, per-sharing-session Web Push. Setup is
+opt-in and requires a compatible browser. An iPhone/iPad Home Screen installation
+can pair with its current private phone link and request permission there. Closing
+the page does not remove an enabled subscription. Stopping, expiry, project changes
+or quitting cancels new/pending sends; messages already accepted by the browser
+provider cannot be recalled. See [phone completion setup](phone-view.md#completion-notifications).
+
+The source suites passed **176 backend tests, 45 frontend unit tests, 42 native
+tests and 20 browser tests**, plus lint and the production frontend build. Push tests decrypt actual
+encrypted payloads with a browser private key and verify VAPID signatures. Browser
+checks exercise permission, subscription, installed pairing, revocation and
+background service-worker notification handling. These checks do not establish
+delivery on a physical locked phone; OS permissions and active sharing remain
+required.
+
+Verify the finished executable resources with:
+
+```powershell
+node scripts/verify-windows-icons.cjs
+```
+
+The packaged `-Phone` smoke additionally checks the native toast with a hidden
+window, portable notification activation, in-app notice, click-again card toggle,
+public HTTPS pairing and bundled Web Push key/service-worker assets. Verification
+results and the artifact checksum follow.
+
+The actual portable executable passed on **2026-10-05** with only Windows System32
+on PATH. Windows emitted exactly one native notification `show` event with the
+window hidden (**attempted: 1, shown: 1, failed: 0**), and its activation target was
+repaired to the original portable EXE. The in-app notice, card collapse/reopen,
+public HTTPS pairing, packaged Web Push application key, worker/manifest assets,
+existing watcher/companion/tray features and clean quit all passed. The script
+also verified removal of discovery and absence of the owned helper after quit.
+
+Report: `.local/packaged-smoke-e30d281cc35a4064baee9f475b30c6b1/result.json`.
+One saved-file sample reached the DOM in **222 ms**, or **71 ms** from event time;
+these are individual samples. The frozen helper passed the official SDK handshake,
+all seven MCP tools, accepted reports, DPAPI discovery and clean EOF shutdown:
+`.local/packaged-mcp-v0.5.0-verification.json`.
+
+Resource verification confirmed all seven canonical icon frames in both the
+portable launcher and `win-unpacked/CodeWatch.exe`. Artifact:
+`dist/windows/CodeWatch-0.5.0-x64-portable.exe`, **148,391,837 bytes**.
+Authenticode status: **NotSigned**. SHA-256:
+
+```text
+9A428ADDA2C0DCE7B503B4D11E1C7097889F4061193A75737E6B0895888066E7
+```
+
+The [v0.5.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.5.0)
+distributes the source and portable executable. Quit the previous app instance
+before opening it; there is no automatic updater.
+
 ## Ownership and security
 
 ```mermaid
@@ -276,6 +349,8 @@ credentials redacted. Preferences and logs live under `%APPDATA%/CodeWatch`.
 | Automatic vendor configuration, native hooks, VSIX, managed Codex sessions | Not implemented here |
 | Connected work flow and compact pinned companion | Implemented; see the [work flow guide](work-flow.md) |
 | Full startup and one-time tutorial | Implemented and tested in the portable executable |
+| EXE, window, tray and phone icons | Canonical mark generated from the existing SVG |
+| Completion notifications | In-app and native Windows alerts; phone browser push is opt-in and scoped to active sharing |
 | Paired phone view across networks | Implemented and tested over public HTTPS; temporary Quick Tunnel, PC must stay online |
 | Permanent hosted dashboard | Not configured; Quick Tunnels have no uptime guarantee |
 | Durable SQLite replay | Not implemented; bounded session history remains in memory |

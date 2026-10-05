@@ -1,0 +1,15 @@
+{
+  "id": "/phone",
+  "name": "CodeWatch Phone View",
+  "short_name": "CodeWatch",
+  "description": "Live project progress and reported completion alerts from your computer.",
+  "start_url": "/phone",
+  "scope": "/phone",
+  "display": "standalone",
+  "background_color": "#101612",
+  "theme_color": "#142018",
+  "icons": [
+    { "src": "/phone-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/phone-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

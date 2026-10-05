@@ -18,6 +18,8 @@ import { ActivityFlow } from './components/ActivityFlow';
 import { useDesktopPreferences } from './hooks/useDesktopPreferences';
 import { IntroTutorial } from './components/IntroTutorial';
 import { PhoneSharePanel } from './components/PhoneSharePanel';
+import { useCompletionNotifications } from './hooks/useCompletionNotifications';
+import { CompletionNotification } from './components/CompletionNotification';
 
 export default function App() {
   const [mode, setMode] = useState<'live' | 'demo'>('live');
@@ -25,6 +27,7 @@ export default function App() {
   const monitor = useLiveEvents();
   const { start, reset } = demo;
   const state = mode === 'live' ? monitor.state : demo.state;
+  const completion = useCompletionNotifications(monitor.state, mode === 'live');
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const { preferences, setPreferences } = useDesktopPreferences();
   const compact = !!preferences?.compact;
@@ -68,6 +71,7 @@ export default function App() {
           <div className={`workspace-toolbar ${compact ? 'companion-toolbar' : ''}`}><span className={compact ? 'companion-brand' : 'eyebrow'}>{compact ? PRODUCT_NAME : 'CODEWATCH / OBSERVATORY'}</span><div className="workspace-controls"><DesktopControls preferences={preferences} onPreferencesChange={setPreferences} />{!compact && <div className="mode-switch" role="group" aria-label="Workspace mode"><button className={mode === 'live' ? 'active' : ''} aria-pressed={mode === 'live'} onClick={() => { reset(); setMode('live'); }}><Radio size={12} />Live project</button><button className={mode === 'demo' ? 'active' : ''} aria-pressed={mode === 'demo'} onClick={() => setMode('demo')}><FlaskConical size={12} />Demo</button></div>}</div></div>
           {windowError && <div className="notice error-notice" role="alert">{windowError}</div>}
           {compact && error && <div className="notice error-notice" role="alert">{error}</div>}
+          {mode === 'live' && <CompletionNotification notice={completion.notice} onDismiss={completion.dismiss} />}
           {(mode === 'live' || compact) && <ActivityFlow key={`flow-${state.runId ?? 'idle'}`} state={state} compact={compact} onSelectFile={(path) => void focusFile(path)} />}
           {!compact && <>
           {mode === 'live' ? <ProjectConnection session={state.session} busy={monitor.busy} watch={monitor.watch} stop={monitor.stop} /> : <BuildHeader

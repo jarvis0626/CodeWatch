@@ -31,7 +31,7 @@ function desktop() {
     unmaximize() { this.rectangle = { ...this.normal }; this.maximized = false; },
   };
   const electron = {
-    app: { setName() {}, setPath() {}, getPath: () => 'C:/CodeWatch-test', setAppUserModelId() {},
+    app: { setName() {}, setPath() {}, getPath: () => 'C:/CodeWatch-test', setAppUserModelId() {}, setToastActivatorCLSID() {},
       requestSingleInstanceLock: () => false, quit() {} },
     ipcMain: { handle: (name, listener) => handlers.set(name, listener) },
     screen: { getAllDisplays: () => [{ workArea: area }], getDisplayMatching: () => ({ workArea: area }),

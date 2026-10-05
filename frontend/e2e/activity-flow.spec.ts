@@ -85,6 +85,20 @@ test('connected steps retain their changes, selection, and reported target in th
     await expect(page.locator('.flow-step')).toHaveCount(3);
     await expect(page.locator('.flow-step-completed')).toHaveCount(3);
     await expect(page.getByTestId('flow-connector')).toHaveCount(2);
+    await expect(page.getByTestId('completion-notice')).toContainText('Data connection work is done');
+    const completedStep = page.locator('.flow-step').filter({ hasText: 'Data connection work is done' });
+    await completedStep.click();
+    await expect(completedStep).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('flow-step-details')).toContainText('Work reported complete');
+    await completedStep.click();
+    await expect(completedStep).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('flow-step-details')).toHaveCount(0);
+    await completedStep.click();
+    await expect(page.getByTestId('flow-step-details')).toBeVisible();
+    await completedStep.press('Enter');
+    await expect(page.getByTestId('flow-step-details')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Dismiss completion notification', exact: true }).click();
+    await expect(page.getByTestId('completion-notice')).toHaveCount(0);
     await page.locator('.flow-step').filter({ hasText: 'Connect the app to its data' }).click();
     await expect(page.getByTestId('flow-step-details')).toContainText('src/new.ts');
     await expect(page.getByTestId('flow-step-details')).toContainText('test_data_connection');
@@ -92,6 +106,7 @@ test('connected steps retain their changes, selection, and reported target in th
     await page.getByTestId('activity-flow').screenshot({ path: '../docs/codewatch-work-flow.png' });
     await page.reload();
     await expect(page.locator('.flow-step')).toHaveCount(3);
+    await expect(page.getByTestId('completion-notice')).toHaveCount(0);
     await page.locator('.flow-step').filter({ hasText: 'Plan the data connection' }).click();
     await expect(page.getByTestId('flow-step-details')).toContainText('modified');
     await page.getByRole('button', { name: 'Always on top', exact: true }).click();

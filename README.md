@@ -54,9 +54,9 @@ The dashboard labels these sources. An indexed or settled file does not mean its
 
 ## Windows desktop: no installation
 
-**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.4.0/CodeWatch-0.4.0-x64-portable.exe)** from the [v0.4.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.4.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
+**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.5.0/CodeWatch-0.5.0-x64-portable.exe)** from the [v0.5.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.5.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
 
-If you build locally, the same file is at `dist/windows/CodeWatch-0.4.0-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
+If you build locally, the same file is at `dist/windows/CodeWatch-0.5.0-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
 
 Every launch opens the full app, including after a pinned companion session. A short first-run tutorial introduces folder watching, MCP reports, pinning and phone access. Completing or skipping it saves that choice in your Windows profile, so it stays dismissed on later launches.
 
@@ -73,6 +73,17 @@ The portable executable extracts its bundled runtime automatically. Preferences,
 This build is unsigned. [Windows build and verification details](docs/windows-packaging.md) describe how to reproduce it and the tested capabilities.
 
 Phone sharing is optional and starts off. **Enable phone view** creates a QR link to a separate read-only progress view through Cloudflare. It works on mobile data or another network while your PC stays awake and online. **Stop sharing**, changing projects, or quitting revokes it; it also expires after eight hours. The link is temporary, and the underlying Quick Tunnel has no uptime guarantee. [Phone access and connection details](docs/phone-view.md).
+
+Fresh agent completion reports show a notification in the app and phone view, plus
+a Windows notification while the desktop is hidden. Phone **Enable completion
+alerts** requests permission for encrypted browser push, including with the phone
+view closed or the screen locked. On iPhone, add the view to your Home Screen and
+enable alerts there. Sharing must remain active; new sharing addresses need a new
+setup. [Completion alert setup](docs/phone-view.md#completion-notifications).
+
+The EXE, running window, tray and phone Home Screen use the same CodeWatch icon.
+Windows notification registration creates a per-user Start Menu shortcut pointing
+at your portable EXE. Opening the EXE after moving it updates that path.
 
 ## Start locally
 
@@ -284,14 +295,14 @@ The original 36-second Todo simulation remains in the **Demo** tab. It emits 73 
 
 ## Development and verification
 
-The current implementation passed **132 backend tests, 33 frontend unit tests, 24 native-window/tunnel tests, and 14 browser tests**, plus lint and a production build. Desktop checks and frozen MCP verification are recorded in [Windows packaging](docs/windows-packaging.md). These checks cover CodeWatch itself; they do not mean every vendor's IDE was manually tested.
+The current implementation passed **176 backend tests, 45 frontend unit tests, 42 native-window/tunnel/notification tests and 20 browser tests**, plus lint and a production build. The actual portable EXE passed native Windows completion notifications, embedded icons and public phone pairing. Details are recorded in [Windows packaging](docs/windows-packaging.md). These checks do not mean every vendor's IDE or physical phone was manually tested.
 
 ```powershell
 .\backend\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
 .\backend\.venv\Scripts\python.exe -m pytest -q
 .\backend\.venv\Scripts\python.exe -m ruff check backend
 npm.cmd --prefix frontend test
-node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs
+node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs desktop/completion-notifications.test.cjs desktop/windows-notifications.test.cjs
 npm.cmd --prefix frontend run build
 npm.cmd --prefix frontend run test:e2e
 ```

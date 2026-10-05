@@ -27,6 +27,38 @@ desktop settings. Source-file contents, terminal output, command arguments, test
 details and the absolute project directory are omitted from the phone snapshot.
 Report text and relative file names are shared, so choose what your agent reports.
 
+## Completion notifications
+
+A fresh agent completion report shows **Work reported complete** in both the
+desktop app and the open phone view. Restoring an old report after a reload does
+not send another alert. Completion means the agent reported its task done; it
+does not turn failed tests into passing results.
+
+For alerts with the phone view closed or your screen locked, open the paired phone
+view and tap **Enable completion alerts**, then allow your browser's notification
+prompt. These use encrypted Web Push through your browser's notification service.
+Your PC must stay awake, online, running CodeWatch and sharing the same project.
+The notification contains the project name and completion status; it omits the
+report contents, files, commands and source code. Tap it to reopen the phone view.
+
+On **iPhone or iPad with iOS/iPadOS 16.4 or later**, open the QR link in Safari,
+use **Share > Add to Home Screen**, then open CodeWatch from that icon. If the
+installed view asks to pair, paste the current private phone link into **Pair this
+phone**. The Safari setup panel can copy that link while it is still open. Tap
+**Enable completion alerts** in the installed view and allow notifications.
+[Apple's Web Push requirements](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/).
+
+The Home Screen icon belongs to that temporary sharing address. After sharing
+ends and a new address is generated, open/install the new phone link and enable
+alerts again. A link from a different sharing address cannot pair an old installed
+view. Compatible Android browsers can enable alerts directly from the HTTPS view.
+
+**Turn off alerts** unsubscribes this phone. Stopping sharing, switching projects,
+expiry or quitting cancels new and pending sends. A notification already accepted
+by the browser's push service cannot be recalled; its remaining delivery lifetime
+is capped at five minutes and the sharing expiry. Browser permission, phone
+notification settings and Focus/Do Not Disturb also control when alerts appear.
+
 ## End the connection
 
 **Stop sharing** revokes every paired browser and stops the internet connection.

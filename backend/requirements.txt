@@ -3,3 +3,4 @@ uvicorn[standard]>=0.34,<1.0
 pydantic>=2.10,<3.0
 pathspec>=0.12,<1.0
 mcp>=1.12,<2.0
+pywebpush==2.5.0

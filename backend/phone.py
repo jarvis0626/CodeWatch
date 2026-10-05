@@ -22,12 +22,30 @@ import uvicorn
 from backend.observer.manager import WatchManager
 from backend.observer.scanner import is_sensitive_name
 from backend.observer.session import ProjectSession
+from backend.phone_push import PhonePush, Send
 
 COOKIE = "codewatch_phone"
 MAX_PAIR_BYTES = 4096
 MAX_VIEWERS = 8
 MAX_PAIR_FAILURES = 20
 PUBLIC_HOST = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.trycloudflare\.com$")
+
+
+async def _json_request(request: Request):
+    if request.headers.get("content-type", "").split(";")[0] != "application/json":
+        raise HTTPException(415, "Use application/json")
+    length = request.headers.get("content-length", "0")
+    if not length.isdigit() or len(length) > 16 or int(length) > MAX_PAIR_BYTES:
+        raise HTTPException(413, "Viewer request too large")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > MAX_PAIR_BYTES:
+            raise HTTPException(413, "Viewer request too large")
+    try:
+        return json.loads(body)
+    except (ValueError, TypeError):
+        return None
 
 
 def _relative(path: str | None) -> str | None:
@@ -130,12 +148,15 @@ class _Stop(BaseModel):
 
 
 class PhoneShare:
-    def __init__(self, manager: WatchManager, *, frontend_dir: Path | None = None, ttl_seconds: float = 28800):
+    def __init__(self, manager: WatchManager, *, frontend_dir: Path | None = None, ttl_seconds: float = 28800,
+                 push_sender: Send | None = None):
         if ttl_seconds <= 0:
             raise ValueError("Phone sharing needs a positive lifetime")
         self.manager = manager
         self.frontend_dir = frontend_dir or Path(__file__).resolve().parent.parent / "frontend" / "dist"
         self.ttl_seconds = ttl_seconds
+        self._push_sender = push_sender
+        self._push: PhonePush | None = None
         self._lock = asyncio.Lock()
         self._server = None
         self._server_task = None
@@ -155,6 +176,8 @@ class PhoneShare:
         self._pair_token = None
         self._sessions.clear()
         self._public_origin = None
+        if self._push:
+            self._push.revoke()
         if self._server:
             self._server.should_exit = True
 
@@ -201,6 +224,8 @@ class PhoneShare:
                 self._deadline = monotonic() + self.ttl_seconds
                 self._expires_at = datetime.fromtimestamp(time() + self.ttl_seconds, timezone.utc).isoformat()
                 self._pair_failures.clear()
+                self._push = PhonePush(self.manager, valid=self._valid, origin=lambda: self._public_origin,
+                                       deadline=self._deadline, sender=self._push_sender)
                 config = uvicorn.Config(self.viewer_app(), log_level="warning", access_log=False,
                                         loop="asyncio", http="h11", ws="none", lifespan="off",
                                         proxy_headers=False, timeout_graceful_shutdown=1, limit_concurrency=32)
@@ -232,6 +257,10 @@ class PhoneShare:
                 raise HTTPException(409, "This phone sharing session has ended")
             if self._public_origin and self._public_origin != public_url:
                 self._sessions.clear()
+                if self._push:
+                    await self._push.close()
+                self._push = PhonePush(self.manager, valid=self._valid, origin=lambda: self._public_origin,
+                                       deadline=self._deadline, sender=self._push_sender)
             self._public_origin = public_url
             return self.status()
 
@@ -245,6 +274,9 @@ class PhoneShare:
 
     async def _stop_locked(self):
         self._revoke()
+        if self._push:
+            await self._push.close()
+            self._push = None
         monitor, server_task = self._monitor_task, self._server_task
         self._monitor_task = None
         if monitor and monitor is not asyncio.current_task():
@@ -326,7 +358,8 @@ class PhoneShare:
                 "X-Content-Type-Options": "nosniff",
                 "Content-Security-Policy": "default-src 'self'; script-src 'self'; "
                     "style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; "
-                    "font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+                    "font-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; "
+                    "frame-ancestors 'none'",
             })
             return response
 
@@ -341,25 +374,36 @@ class PhoneShare:
         async def health():
             return {"shareId": self._share_id, "active": True}
 
+        @app.get("/phone-sw.js")
+        async def service_worker():
+            path = self.frontend_dir / "phone-sw.js"
+            if not path.is_file():
+                raise HTTPException(503, "Phone notification assets are not built")
+            return FileResponse(path, media_type="application/javascript",
+                                headers={"Service-Worker-Allowed": "/phone"})
+
+        @app.get("/phone.webmanifest")
+        async def manifest():
+            path = self.frontend_dir / "phone.webmanifest"
+            if not path.is_file():
+                raise HTTPException(503, "Phone notification assets are not built")
+            return FileResponse(path, media_type="application/manifest+json")
+
+        @app.get("/phone-icon-{size}.png")
+        async def icon(size: int):
+            if size not in {192, 512}:
+                raise HTTPException(404, "Icon not found")
+            path = self.frontend_dir / f"phone-icon-{size}.png"
+            if not path.is_file():
+                raise HTTPException(503, "Phone notification assets are not built")
+            return FileResponse(path, media_type="image/png")
+
         @app.post("/api/pair")
         async def pair(request: Request):
             if request.headers.get("origin") != self._origin(request):
                 raise HTTPException(403, "Viewer connection denied")
-            if request.headers.get("content-type", "").split(";")[0] != "application/json":
-                raise HTTPException(415, "Use application/json")
-            length = request.headers.get("content-length", "0")
-            if not length.isdigit() or len(length) > 16 or int(length) > MAX_PAIR_BYTES:
-                raise HTTPException(413, "Pairing request too large")
-            body = bytearray()
-            async for chunk in request.stream():
-                body.extend(chunk)
-                if len(body) > MAX_PAIR_BYTES:
-                    raise HTTPException(413, "Pairing request too large")
-            try:
-                value = json.loads(body)
-                credential = value["token"] if isinstance(value, dict) else None
-            except (ValueError, KeyError, TypeError):
-                credential = None
+            value = await _json_request(request)
+            credential = value.get("token") if isinstance(value, dict) else None
             now = monotonic()
             while self._pair_failures and self._pair_failures[0] <= now - 60:
                 self._pair_failures.popleft()
@@ -383,6 +427,39 @@ class PhoneShare:
                                 secure=self._origin(request).startswith("https:"),
                                 max_age=max(1, int(self._deadline - monotonic())), path="/")
             return response
+
+        def push_credential(request: Request, *, mutation=False) -> str:
+            if not self._authorized(request):
+                raise HTTPException(403, "Scan the current sharing QR code to connect")
+            if mutation and request.headers.get("origin") != self._origin(request):
+                raise HTTPException(403, "Viewer connection denied")
+            return request.cookies[COOKIE]
+
+        @app.get("/api/push/status")
+        async def push_status(request: Request):
+            credential = push_credential(request)
+            return await self._push.status(credential)
+
+        @app.post("/api/push/subscribe")
+        async def push_subscribe(request: Request):
+            credential = push_credential(request, mutation=True)
+            value = await _json_request(request)
+            # Uploads can finish after sharing has been stopped or replaced.
+            push_credential(request, mutation=True)
+            try:
+                return await self._push.subscribe(credential, value)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            except RuntimeError as exc:
+                raise HTTPException(503, str(exc)) from exc
+
+        @app.post("/api/push/unsubscribe")
+        async def push_unsubscribe(request: Request):
+            credential = push_credential(request, mutation=True)
+            if await _json_request(request) != {}:
+                raise HTTPException(422, "Use an empty JSON object")
+            push_credential(request, mutation=True)
+            return self._push.unsubscribe(credential)
 
         @app.get("/api/snapshot")
         async def snapshot(request: Request):

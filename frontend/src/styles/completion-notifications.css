@@ -1,0 +1,8 @@
+.completion-notification { display: flex; align-items: flex-start; gap: 12px; background: #1b3225; border: 1px solid #6ebf95; border-radius: 8px; margin: 0 0 18px; padding: 16px; color: #d8f2e2; }
+.completion-notification > svg { color: #a6e8c7; flex: 0 0 auto; margin-top: 1px; }
+.completion-notification > div { flex: 1; min-width: 0; }
+.completion-notification strong { font-size: 14px; }
+.completion-notification small { display: block; color: #a9cbb8; font-size: 11px; margin-top: 5px; }
+.completion-notification p { margin: 9px 0 0; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; max-height: 8em; overflow: auto; }
+.completion-notification > button { background: none; border: 0; color: #c2ddcc; padding: 2px; flex: 0 0 auto; cursor: pointer; }
+.completion-notification > button:focus-visible { outline: 2px solid #a6e8c7; outline-offset: 3px; }

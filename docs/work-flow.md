@@ -6,6 +6,9 @@ reported files, saves during that step, test results and command outcomes. The
 details also show known import or agent-reported links involving those files from
 the current project map, rather than a historical dependency snapshot.
 
+Selecting the same card again closes its details. Selecting it once more reopens
+them; selecting a different card shows that step instead.
+
 ![CodeWatch pinned companion](codewatch-companion.png)
 
 ## Pin the work flow
