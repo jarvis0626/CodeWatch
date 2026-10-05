@@ -51,7 +51,7 @@ def create_app(
         finally:
             await manager.close()
 
-    app = FastAPI(title="CodeWatch", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="CodeWatch", version="0.2.1", lifespan=lifespan)
     app.state.watch_manager = manager
     origins = os.getenv("CODEWATCH_ALLOWED_ORIGINS", ",".join(LOCAL_ORIGINS)).split(",")
     origins = [origin.strip() for origin in origins if origin.strip()]

@@ -22,6 +22,12 @@ export default function App() {
   const { start, reset } = demo;
   const state = mode === 'live' ? monitor.state : demo.state;
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  const [fileFocus, setFileFocus] = useState<{ path: string } | null>(null);
+  useEffect(() => { setFileFocus(null); }, [state.runId]);
+  function focusFile(path: string) {
+    setFileFocus({ path });
+    document.getElementById('architecture')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
   const [now, setNow] = useState(Date.now());
   const live = state.connection === 'streaming' && (mode === 'demo' || !!state.session?.watching);
   const error = mode === 'live' ? monitor.requestError || state.error : state.error;
@@ -95,13 +101,15 @@ export default function App() {
               runId={state.runId}
               projectName={mode === 'demo' ? 'todo-app' : state.session?.projectName}
               mode={mode}
+              files={state.files}
+              focusRequest={fileFocus}
             />
             <div className="agent-column">
               <CurrentAction state={state} />
               <AgentTimeline state={state} />
             </div>
             <div className="detail-grid">
-              <FileChanges files={state.files} />
+              <FileChanges files={state.files} onSelectFile={mode === 'live' ? focusFile : undefined} />
               <TestResults tests={state.tests} mode={mode} />
             </div>
             <EventLog

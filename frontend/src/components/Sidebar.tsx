@@ -34,7 +34,7 @@ export function Sidebar({ mode, session }: { mode: 'live' | 'demo'; session: Ses
             onClick={() => setActive(id)}
           >
             <Icon size={16} />
-            {label}
+            {id === 'architecture' && mode === 'live' ? 'Project map' : label}
             {active === id && <span className="nav-indicator" />}
           </a>
         ))}

@@ -53,12 +53,37 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     checks.push('Packaged MCP configuration points to stable per-user executable');
     let seen = false;
     for (let attempt = 0; attempt < 100; attempt++) {
-      seen = await web.executeJavaScript(`document.body.innerText.includes('fixture.py')`);
+      seen = await web.executeJavaScript(`!!document.querySelector('button[aria-label="Open project root folder"]')`);
       if (seen) break;
       await delay(100);
     }
     assert.ok(seen, 'Live WebSocket delivers indexed files to dashboard');
     checks.push('Authenticated live WebSocket delivers actual project files');
+    const folderMap = await web.executeJavaScript(`({
+      title: document.querySelector('#architecture-title').innerText,
+      folders: document.querySelectorAll('.project-area').length,
+      canvasNodes: document.querySelectorAll('.react-flow__node').length,
+      labelSize: parseFloat(getComputedStyle(document.querySelector('.project-area h3')).fontSize)
+    })`);
+    assert.equal(folderMap.title, 'Project map');
+    assert.equal(folderMap.folders, 1);
+    assert.equal(folderMap.canvasNodes, 0);
+    assert.ok(folderMap.labelSize >= 15);
+    await web.executeJavaScript(`document.querySelector('button[aria-label="Open project root folder"]').click()`);
+    await delay(150);
+    await web.executeJavaScript(`document.querySelector('button[aria-label="Open connections for fixture.py"]').click()`);
+    await delay(150);
+    const connectionText = await web.executeJavaScript(`document.querySelector('[data-testid="map-file-details"]').innerText`);
+    assert.ok(connectionText.includes('Uses code from'));
+    assert.ok(connectionText.includes('data.py'));
+    assert.ok(connectionText.includes('Used by'));
+    await web.executeJavaScript(`document.querySelector('.map-hide-button').click()`);
+    await delay(100);
+    assert.equal(await web.executeJavaScript(`document.querySelector('#project-map-content').hidden`), true);
+    await web.executeJavaScript(`document.querySelector('.map-hide-button').click()`);
+    await delay(100);
+    assert.ok(await web.executeJavaScript(`document.querySelector('[data-testid="map-file-details"]').innerText.includes('fixture.py')`));
+    checks.push('Readable folder overview, directed import lists and map hide/show work');
     await web.executeJavaScript(`new Promise((opened, failed) => {
       const socket = new WebSocket(location.origin.replace('http:', 'ws:') + '/ws/live');
       window.__codewatchSmokeEvent = new Promise((resolve, reject) => {

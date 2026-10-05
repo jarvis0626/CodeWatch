@@ -10,6 +10,7 @@ export function CurrentAction({ state }: { state: BuildState }) {
   const status = connection === 'error' ? 'failed' : (current?.status ?? 'pending');
   const demo = state.mode === 'demo';
   const latestReport = state.agentReport;
+  const observedSave = !demo && current?.source === 'filesystem' && current.type.startsWith('file_');
   return (
     <section className="panel current-panel" aria-labelledby="action-title">
       <header className="panel-header">
@@ -57,13 +58,13 @@ export function CurrentAction({ state }: { state: BuildState }) {
         )}
         <div className="action-metadata">
           <span>
-            Event type<code>{current?.type ?? '—'}</code>
+            {observedSave ? 'Change' : 'Event type'}<code>{observedSave ? current!.type.replace('file_', '') : current?.type ?? '—'}</code>
           </span>
           <span>
-            Status
+            {observedSave ? 'Evidence' : 'Status'}
             <span className={`status-text ${status}`}>
               <span className="status-dot" />
-              {status}
+              {observedSave ? 'Observed on disk' : status}
             </span>
           </span>
         </div>

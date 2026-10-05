@@ -1,7 +1,7 @@
 import { FileCode2, Files } from 'lucide-react';
 import { sourceLabel, type FileChange } from '../types/events';
 
-export function FileChanges({ files }: { files: FileChange[] }) {
+export function FileChanges({ files, onSelectFile }: { files: FileChange[]; onSelectFile?: (path: string) => void }) {
   return (
     <section className="panel file-panel" id="files" aria-labelledby="files-title">
       <header className="panel-header">
@@ -29,7 +29,7 @@ export function FileChanges({ files }: { files: FileChange[] }) {
               </span>
               <FileCode2 size={14} />
               <div title={file.path}>
-                <span>{name}</span>
+                {onSelectFile ? <button type="button" className="file-map-link" title={`Show connections for ${file.path}`} onClick={() => onSelectFile(file.path)}>{name}</button> : <span>{name}</span>}
                 <small>{parts.join('/')}/ · {sourceLabel(file.source, !file.source)}</small>
               </div>
               <span className="file-kind">{file.kind === 'created' ? 'NEW' : file.kind === 'deleted' ? 'DELETED' : 'EDIT'}</span>

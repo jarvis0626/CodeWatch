@@ -1,0 +1,85 @@
+.project-map.architecture-panel { min-height: 0; align-self: start; }
+.project-map .panel-header { height: 54px; }
+.project-map .panel-header h2 { font-size: 13px; }
+.project-map-content { padding: 20px; }
+.project-map-content[hidden] { display: none; }
+.map-hide-button { height: 29px; font-size: 11px; }
+.map-introduction > strong { font-size: 17px; font-weight: 500; color: #d3e6d9; }
+.map-introduction p { font-size: 12px; line-height: 1.7; color: #94aa9d; margin: 7px 0 17px; }
+.map-search { padding: 9px 12px; border: 1px solid #34483c; border-radius: 6px; margin-bottom: 16px; }
+.map-search input, .map-search select { font-size: 12px; }
+.map-recent { border-top: 1px solid #2c3c32; padding-top: 15px; margin-bottom: 17px; }
+.map-recent > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.map-recent button { border: 1px solid #3c5946; border-radius: 5px; padding: 8px 10px; background: #203026; color: #c7e4d2; display: flex; align-items: center; gap: 7px; font-size: 12px; max-width: 100%; }
+.map-recent button > span:not(.map-change-dot) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-recent button > small { color: #95b9a4; font-size: 10px; white-space: nowrap; }
+.map-change-dot { width: 6px; height: 6px; border-radius: 50%; background: #a6e8c8; flex-shrink: 0; }
+.map-change-dot.deleted { background: #e8a6a6; }
+.map-breadcrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 0 0 15px; font-size: 12px; color: #a8c0b2; }
+.map-breadcrumbs > span { display: flex; align-items: center; gap: 7px; }
+.map-breadcrumbs button, .area-connections button { border: 0; background: transparent; color: #c4dfce; padding: 3px 0; text-align: left; overflow-wrap: anywhere; }
+.map-breadcrumbs button:hover, .area-connections button:hover { text-decoration: underline; }
+.project-areas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.project-area { display: block; text-align: left; width: 100%; border: 1px solid #3b4c41; border-radius: 7px; background: #19231d; color: #cdded3; padding: 17px; }
+.project-area:hover { border-color: #83aa93; background: #1d2b22; }
+.area-heading { display: flex; align-items: center; gap: 9px; }
+.area-heading > svg:first-child { color: #a7cbb5; }
+.area-heading > svg:last-child { margin-left: auto; flex-shrink: 0; color: #8da596; }
+.area-heading h3 { margin: 0; font-size: 16px; font-weight: 550; overflow-wrap: anywhere; }
+.project-area p { font-size: 13px; margin: 15px 0 7px; color: #c0d3c7; display: flex; flex-wrap: wrap; gap: 8px; }
+.project-area p span { font-size: 11px; color: #88a091; align-self: center; margin-left: auto; }
+.area-path { font: 10px/1.7 var(--mono); color: #95ac9e; overflow-wrap: anywhere; }
+.area-change-label { display: block; margin-top: 13px; padding-top: 11px; border-top: 1px solid #304238; font-size: 11px; color: #809b8a; }
+.area-changed { border-color: #5b886c; }
+.area-changed .area-change-label { color: #a6e8c8; }
+.area-connections { margin: 19px 0 0; padding: 15px; border: 1px solid #334d3d; border-radius: 6px; background: #17241b; }
+.project-map h4 { margin: 0 0 12px; color: #c3d7cc; font-size: 12px; font-weight: 500; }
+.area-connections p { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; margin: 6px 0; }
+.area-connections p span { font-size: 10px; color: #95ab9d; margin-left: auto; }
+.map-file-list { margin-top: 18px; }
+.map-file-list > button, .map-connection-column button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid #314639; border-radius: 5px; color: #c9dfd1; background: #162019; padding: 11px 12px; margin-top: 6px; }
+.map-file-list > button:hover, .map-connection-column button:hover { background: #223327; border-color: #729c83; }
+.map-file-list > button[data-state="active"] { border-color: #88b79a; }
+.map-file-list > button > span:not(.map-file-changed), .map-connection-column button > span { flex: 1; min-width: 0; }
+.map-file-list button strong, .map-connection-column button strong { display: block; font-size: 12px; font-weight: 500; }
+.map-file-list button small, .map-connection-column button small { display: block; color: #8fa799; font: 10px/1.6 var(--mono); overflow-wrap: anywhere; margin-top: 3px; }
+.map-file-changed { font-size: 10px; color: #a6e8c8; }
+.map-note, .map-evidence, .map-explanation { color: #8fa99a; font-size: 11px; line-height: 1.8; }
+.map-evidence { border-top: 1px solid #304238; padding-top: 14px; margin: 19px 0 0; }
+.map-notice { font-size: 12px; line-height: 1.7; padding: 12px; border: 1px solid #695c3f; color: #d4cba9; border-radius: 5px; }
+.map-back { padding-left: 0; margin: 0 0 10px; }
+.map-selected-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 15px 0; }
+.map-selected-heading > svg { color: #acd7bb; }
+.map-selected-heading > div { flex: 1; min-width: 0; }
+.map-selected-heading h3 { font-size: 18px; font-weight: 500; margin: 0 0 5px; overflow-wrap: anywhere; }
+.map-selected-heading code { color: #a7c0b1; font: 11px/1.6 var(--mono); overflow-wrap: anywhere; }
+.map-file-status { border: 1px solid #3d5b47; border-radius: 4px; padding: 5px 7px; font-size: 10px; color: #a3cbb4; }
+.map-connection-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 19px; }
+.map-connection-column { padding: 13px; border: 1px solid #354a3c; border-radius: 6px; min-width: 0; }
+.map-connection-column h4 { display: flex; justify-content: space-between; gap: 8px; }
+.map-connection-column h4 > span { color: #86a58f; }
+.map-connection-column p { font-size: 11px; color: #82998b; line-height: 1.7; }
+.map-connection-column ul { padding: 0; margin: 0; list-style: none; max-height: 300px; overflow: auto; }
+.map-connection-column button { padding: 9px; }
+.map-reported { margin-top: 17px; padding: 14px; border: 1px solid #5c4c72; border-radius: 6px; }
+.map-reported > div + div { border-top: 1px solid #493e59; padding-top: 12px; margin-top: 12px; }
+.map-reported button { display: flex; align-items: center; gap: 7px; background: transparent; color: #c9b8e2; font-size: 12px; border: 0; padding: 0; text-align: left; }
+.map-reported strong { font-size: 11px; display: block; margin-top: 8px; font-weight: 500; color: #c1add9; }
+.map-reported p { color: #a497b8; font-size: 11px; line-height: 1.7; margin-bottom: 0; }
+.diagram-toggle { border: 1px solid #354c3c; margin-top: 17px; color: #acd7bb; }
+.focused-diagram-wrap { border: 1px solid #33493b; border-radius: 5px; overflow: hidden; margin-top: 13px; }
+.focused-diagram-toolbar { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 5px 10px; background: #1b2820; font-size: 11px; color: #a0bcaa; }
+.focused-diagram { height: 370px; width: 100%; }
+.focused-diagram-wrap > .map-note { padding: 0 12px; }
+.connection-node { width: 220px; padding: 13px; border: 1px solid #496353; border-radius: 6px; background: #1a281f; color: #cde4d5; }
+.connection-node > span { display: flex; align-items: center; gap: 6px; color: #8caf99; font-size: 10px; }
+.connection-node strong { font-size: 14px; font-weight: 500; display: block; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.connection-node small { display: block; color: #8fab9b; font: 10px/1.8 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+.connection-selected { border-color: #a6e8c8; background: #233a2b; }
+.connection-selected > span { color: #b3e5c7; }
+.map-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 30px 12px; color: #91af9d; font-size: 12px; line-height: 1.8; }
+.map-empty strong { font-size: 15px; color: #c3dccd; font-weight: 500; }
+.map-empty p { margin: 0; }
+.file-map-link { background: transparent; border: 0; padding: 0; color: #bddbcc; font-size: 10px; text-align: left; }
+.file-map-link:hover { text-decoration: underline; }
+@media (max-width: 620px) { .project-map-content { padding: 14px; } .project-areas, .map-connection-lists { grid-template-columns: 1fr; } .map-recent button > small { display: none; } .map-search label { min-width: 100px; } .map-file-status { margin-left: 33px; } .map-hide-button { font-size: 10px; padding-inline: 7px; } .focused-diagram-toolbar > span { font-size: 10px; } }

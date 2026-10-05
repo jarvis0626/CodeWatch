@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import type { GraphEdge, GraphNode, NodeKind } from '../types/events';
 import { StatusIcon } from './StatusIcon';
+import { ProjectMap } from './ProjectMap';
+import type { FileChange } from '../types/events';
 
 type ArchitectureNode = Node<GraphNode, 'architecture'>;
 const icons = {
@@ -117,6 +119,8 @@ interface Props {
   runId: string | null;
   projectName?: string;
   mode: 'live' | 'demo';
+  files?: FileChange[];
+  focusRequest?: { path: string } | null;
 }
 
 function Graph({ nodes, edges, live, runId, projectName, mode }: Props) {
@@ -318,6 +322,7 @@ function Graph({ nodes, edges, live, runId, projectName, mode }: Props) {
 }
 
 export function ArchitectureGraph(props: Props) {
+  if (props.mode === 'live') return <ProjectMap {...props} />;
   return (
     <ReactFlowProvider>
       <Graph {...props} />

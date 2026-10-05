@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 test('watches actual files, connects agent progress, restores state, and stays live after completion', async ({ page, request }) => {
-  const project = await mkdtemp(resolve('..', '.codewatch-e2e-'));
+  await mkdir(resolve('..', '.local'), { recursive: true });
+  const project = await mkdtemp(resolve('..', '.local', 'codewatch-e2e-'));
   const errors: string[] = [];
   let runId: string | undefined;
   page.on('pageerror', (error) => errors.push(error.message));
@@ -17,9 +18,11 @@ test('watches actual files, connects agent progress, restores state, and stays l
     await page.getByLabel('Project folder').fill(project);
     await page.getByLabel('Session label').fill('My coding IDE');
     await page.getByRole('button', { name: 'Watch project', exact: true }).click();
-    await expect(page.getByTestId('node-file:src/app.ts')).toBeVisible();
-    await expect(page.getByTestId('architecture-nodes')).toHaveText('03');
-    await expect(page.locator('.react-flow__edge')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Open src folder', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Open src folder', exact: true }).click();
+    await expect(page.getByTestId('map-file-file:src/app.ts')).toBeVisible();
+    await expect(page.getByTestId('architecture-nodes')).toHaveText('02');
+    await expect(page.locator('.react-flow__node')).toHaveCount(0);
     await expect(page.getByTestId('current-stage')).toHaveText('NOT REPORTED');
     await expect(page.getByTestId('files-touched')).toHaveText('0');
     runId = (await (await request.get('/api/session')).json()).session.runId;
@@ -34,7 +37,7 @@ test('watches actual files, connects agent progress, restores state, and stays l
     await expect(page.getByTestId('current-stage')).toHaveText('IMPLEMENTING');
     await expect(page.getByTestId('current-action')).toHaveText('Connecting the app to its data module');
     await expect(page.locator('.current-panel .source-badge')).toHaveText('Agent-reported');
-    await expect(page.getByTestId('node-file:src/app.ts')).toHaveAttribute('data-state', 'active');
+    await expect(page.getByTestId('map-file-file:src/app.ts')).toHaveAttribute('data-state', 'active');
     await writeFile(resolve(project, 'src/data.ts'), 'export const data = [1, 2, 3];\n');
     await expect(page.locator('.file-row').filter({ hasText: 'data.ts' })).toContainText('Observed file change');
     await expect(page.locator('.latest-report')).toContainText('Connecting the app to its data module');
@@ -45,24 +48,28 @@ test('watches actual files, connects agent progress, restores state, and stays l
     await page.reload();
     await expect(page.getByTestId('current-stage')).toHaveText('IMPLEMENTING');
     await expect(page.getByTestId('tests-passing')).toHaveText('1 / 1');
-    await expect(page.getByTestId('node-file:src/app.ts')).toBeVisible();
+    await page.getByRole('button', { name: 'Open src folder', exact: true }).click();
+    await expect(page.getByTestId('map-file-file:src/app.ts')).toBeVisible();
     await page.getByLabel('Search architecture').fill('app.ts');
-    await expect(page.locator('.react-flow__node')).toHaveCount(1);
+    await expect(page.locator('.map-file-list > button')).toHaveCount(1);
     await page.getByLabel('Search architecture').fill('');
-    await expect(page.locator('.react-flow__node')).toHaveCount(3);
-    await page.getByTestId('node-file:src/app.ts').click();
-    await page.getByRole('button', { name: 'Focus connections' }).click();
-    await expect(page.locator('.node-inspector')).toContainText('Import');
-    await page.getByRole('button', { name: 'Close node details' }).click();
+    await expect(page.locator('.map-file-list > button')).toHaveCount(2);
+    await page.getByTestId('map-file-file:src/app.ts').click();
+    await expect(page.getByTestId('map-file-details')).toContainText('Uses code from');
+    await expect(page.getByTestId('map-file-details')).toContainText('data.ts');
+    await page.getByRole('button', { name: 'Show connection diagram' }).click();
+    await expect(page.locator('.react-flow__edge')).toHaveCount(1);
+    await expect(page.locator('.react-flow__node')).toHaveCount(2);
+    await page.getByRole('button', { name: 'Back to folder' }).click();
     await page.screenshot({ path: '../docs/codewatch-live.png', fullPage: true });
     const complete = await request.post('/api/agent/complete', { data: { runId, agentName: 'Test assistant', message: 'App data flow is ready' } });
     expect(complete.ok()).toBe(true);
     await expect(page.getByTestId('current-stage')).toHaveText('COMPLETE');
     await expect(page.getByRole('button', { name: 'Stop watching', exact: true })).toBeVisible();
     await writeFile(resolve(project, 'src/extra.ts'), 'export const extra = true;\n');
-    await expect(page.getByTestId('node-file:src/extra.ts')).toBeVisible();
+    await expect(page.getByTestId('map-file-file:src/extra.ts')).toBeVisible();
     await rm(resolve(project, 'src/data.ts'));
-    await expect(page.getByTestId('node-file:src/data.ts')).toHaveCount(0);
+    await expect(page.getByTestId('map-file-file:src/data.ts')).toHaveCount(0);
     await expect(page.locator('.file-row.deleted')).toContainText('data.ts');
     await page.waitForTimeout(11_000); // Cross a heartbeat interval; idle activity must stay connected.
     await expect(page.locator('.connection')).toContainText('Stream connected');
@@ -74,7 +81,7 @@ test('watches actual files, connects agent progress, restores state, and stays l
   } finally {
     if (runId) await request.post('/api/watch/stop', { data: { runId } });
     if (!project.startsWith(resolve('..') + '\\') && !project.startsWith(resolve('..') + '/')) throw new Error('Temporary project must stay inside the workspace');
-    await rm(project, { recursive: true, force: true });
+    await rm(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 });
 

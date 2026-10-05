@@ -1,12 +1,17 @@
-param([string]$Executable = 'dist/windows/CodeWatch-0.2.0-x64-portable.exe')
+param([string]$Executable = '')
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
+if (-not $Executable) {
+    $taskVersion = (Get-Content -LiteralPath (Join-Path $taskRoot 'desktop/package.json') -Raw | ConvertFrom-Json).version
+    $Executable = "dist/windows/CodeWatch-$taskVersion-x64-portable.exe"
+}
 $taskExe = if ([IO.Path]::IsPathRooted($Executable)) { $Executable } else { Join-Path $taskRoot $Executable }
 $taskExe = (Resolve-Path -LiteralPath $taskExe).Path
 $taskDir = Join-Path $taskRoot ('.local/packaged-smoke-' + [guid]::NewGuid().ToString('N'))
 $taskProject = Join-Path $taskDir 'project'
 New-Item -ItemType Directory -Path $taskProject -Force | Out-Null
-Set-Content -LiteralPath (Join-Path $taskProject 'fixture.py') -Value 'value = 1'
+Set-Content -LiteralPath (Join-Path $taskProject 'data.py') -Value 'value = 1'
+Set-Content -LiteralPath (Join-Path $taskProject 'fixture.py') -Value 'from data import value'
 $taskResult = Join-Path $taskDir 'result.json'
 $taskPathBefore = $env:PATH
 $taskNodeBefore = $env:ELECTRON_RUN_AS_NODE

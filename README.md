@@ -2,7 +2,7 @@
 
 **See what your coding agent is building, and how the project connects.**
 
-CodeWatch runs beside your existing editor or AI tool. On Windows, open the portable desktop executable and choose your project folder. Source files and import relationships change live. Connect its MCP server to an agent to see reported tasks, affected files, architecture, commands, and test outcomes in the same graph.
+CodeWatch runs beside your existing editor or AI tool. On Windows, open the portable desktop executable and choose your project folder. A readable folder map shows where saved changes fit; select a file to see the code it uses and the files that use it. Connect its MCP server to an agent to see reported tasks, affected files, relationships, commands, and test outcomes alongside the map.
 
 ![CodeWatch watching a real project](docs/codewatch-live.png)
 
@@ -10,10 +10,10 @@ CodeWatch runs beside your existing editor or AI tool. On Windows, open the port
 
 You keep using your usual coding AI and editor. CodeWatch opens in its own desktop window and turns the work into a live map. The source CLI also supports the browser dashboard.
 
-1. **Choose your project folder.** CodeWatch reads supported source files and draws their import connections. Saving, creating, or deleting a file updates the map.
+1. **Choose your project folder.** CodeWatch groups supported source files into your actual folders. Saving, creating, or deleting a file updates the map and recent changes.
 2. **Connect your AI.** Add the configuration from **Connect your AI** to an MCP-capable coding tool. MCP (Model Context Protocol) is the interface that lets an agent call CodeWatch's reporting tools.
-3. **Give the AI a task.** With the supplied reporting instructions, the agent describes its current step and names the files involved. Those files light up in the graph.
-4. **Explore the connections.** Select a file to see incoming and outgoing relationships, the connected file paths, and any explanation the agent supplied. Use search, layer filters, and **Focus connections** to narrow the view.
+3. **Give the AI a task.** With the supplied reporting instructions, the agent describes its current step and names the files involved. The activity panel shows that report, and affected files are highlighted in the folder list.
+4. **Explore the connections.** Open a folder or search for a file. Selecting it shows **Uses code from** and **Used by** lists, with agent-reported relationships explained separately. An optional small connection diagram and **Hide map** control let you choose how much detail to see. [Project map guide](docs/project-map.md).
 5. **Follow the outcome.** The activity timeline, file list, command output, and test results show what happened. File watching continues after the agent finishes.
 
 ### Example: asking an AI to build login
@@ -22,7 +22,7 @@ You keep using your usual coding AI and editor. CodeWatch opens in its own deskt
 | --- | --- |
 | The AI reports "Building the login form" with `ui/Login.tsx` | The current task changes and the form's file is highlighted. |
 | The AI saves the form and an API handler | The watcher records the real file changes. |
-| The AI reports that the form submits to `api/login.py` | A dashed relationship connects the files; selecting one reveals the explanation. |
+| The AI reports that the form submits to `api/login.py` | Selecting the file shows that connection and explanation under **Agent-reported connections**; its optional diagram uses a dashed line. |
 | The test command runs through the wrapper and writes a fresh JUnit report | Its actual exit code and individual test outcomes appear. |
 | The AI reports completion | The task becomes complete; the map stays connected for later edits. |
 
@@ -52,9 +52,9 @@ The dashboard labels these sources. An indexed or settled file does not mean its
 
 ## Windows desktop: no installation
 
-**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.2.0/CodeWatch-0.2.0-x64-portable.exe)** from the [v0.2.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
+**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.2.1/CodeWatch-0.2.1-x64-portable.exe)** from the [v0.2.1 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.1). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
 
-If you build locally, the same file is at `dist/windows/CodeWatch-0.2.0-x64-portable.exe`. GitHub downloads require access to this repository.
+If you build locally, the same file is at `dist/windows/CodeWatch-0.2.1-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
 
 The app opens a resizable window, supports **Always on top**, and remembers its position. Closing it quits by default. Enable **Close to tray** to keep observing after closing the window; restore it from the tray, or choose **Quit CodeWatch** to stop its backend. CodeWatch only stops its own service.
 
@@ -191,7 +191,7 @@ For a custom port: `serve --port 8010`, and put `--server-url http://127.0.0.1:8
 
 ## What the real dashboard shows
 
-- An architecture graph built from actual indexed files, with search, layer filters, and focus on a node's connections.
+- A project map of actual folders, recent changes, file search, and readable **Uses code from** / **Used by** lists. A small diagram is optional, and the map can be collapsed.
 - Solid import relationships and separately identified agent-reported relationships.
 - The current reported task and active files, without inventing a stage from filesystem activity.
 - Actual reported stage visits, including repeated testing/debugging cycles.
@@ -214,7 +214,7 @@ The watcher polls approximately every 750 ms and reads source files without exec
 - Folder/name-based roles such as frontend, API, service, repository and database are inferred labels, not semantic verification.
 - Root `.gitignore` and `.codewatchignore` are respected. Dependency folders, generated output, common secrets/key files, binary files, symlinks and junctions are skipped. Nested ignore files are not interpreted.
 - Default limits: 500 tracked files, 512 KB per file, with additional traversal/depth/total-byte caps. Warnings disclose incomplete scans. Watch a smaller subfolder for large repositories.
-- The graph renders a bounded subset at a time for readability; filters and focus expose the rest. Snapshot state retains the full indexed graph.
+- Folder cards summarize the full indexed project. File lists show up to 100 entries; search narrows longer lists. The optional diagram shows the selected file and up to three neighbors on each side, while its connection lists retain all known direct links.
 - File state settles after a short highlight. Test failures stay failed until subsequent test reports resolve them.
 
 A short-lived file created and removed between polls can be missed. Rapid changes can be coalesced into one observed update. Deleted or ignored files are removed from the graph; newly ignored files are not falsely reported as deleted on disk.
@@ -306,7 +306,7 @@ frontend/src/
   hooks/useLiveEvents.ts     Persistent real-project connection
   state/build.ts            Shared event reducer
   types/events.ts           Runtime contract
-  components/               Live graph, project setup, source-aware panels
+  components/               Project map, demo graph, project setup, source-aware panels
   App.tsx, styles/           Dashboard and styling
 ```
 

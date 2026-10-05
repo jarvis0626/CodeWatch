@@ -15,8 +15,8 @@ hooks and guided client configuration) remains separate work.
 
 ## Run the app
 
-Download the executable from the [v0.2.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.0),
-or build `dist/windows/CodeWatch-0.2.0-x64-portable.exe` locally. Copy it to a Windows x64
+Download the executable from the [v0.2.1 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.1),
+or build `dist/windows/CodeWatch-0.2.1-x64-portable.exe` locally. Copy it to a Windows x64
 machine and double-click it. Click **Choose folder** to start watching. Use
 **Connect your AI** for MCP configuration and reporting instructions.
 
@@ -102,7 +102,7 @@ after quit. Timing in the report is one measured sample; it is not a performance
 guarantee. `eventToRenderMs` measures the event timestamp to observed updated DOM
 with 100 ms polling; `savedFileToRenderMs` also includes scanner polling.
 
-The final portable executable passed on **2026-10-05**. Its sample measured
+The original v0.2.0 portable executable passed on **2026-10-05**. Its sample measured
 **18 ms from event timestamp to updated DOM**, and **654 ms from saved file to
 updated DOM**. The full report is
 `.local/packaged-smoke-18be9021e9634a3a998b34aa8711e07b/result.json`;
@@ -114,6 +114,35 @@ Authenticode status: **NotSigned**. SHA-256 of this local build:
 ```text
 3A7B50BC54215233A562B2E57BD3C19E07852022C06F690FCDDFE0D8D015FE6B
 ```
+
+## Project map update: v0.2.1
+
+Version 0.2.1 replaces the default live canvas with folder cards and direct import
+lists. The bounded connection diagram is optional; **Hide map** preserves your
+selection and viewport. See the [project map guide](project-map.md).
+
+The production build, **19 frontend unit tests** and **7 browser tests** passed
+across the demo and live suites. The actual portable executable passed on
+**2026-10-05**, including readable folder labels, directed import lists, hide/show,
+actual file changes, export, preferences, tray behavior and clean quit. Its PATH
+contained only Windows System32. A saved-file sample reached the DOM in **119 ms**
+(**24 ms** from event timestamp); these are individual samples.
+
+The isolated desktop report is
+`.local/packaged-smoke-76d6d60254a244eeaf414561fa535edb/result.json`. The new frozen
+helper also passed the seven-tool MCP handshake, reporting and clean EOF check;
+its report is `.local/packaged-mcp-v0.2.1-verification.json`.
+
+Artifact: `dist/windows/CodeWatch-0.2.1-x64-portable.exe`, **129,584,948 bytes**.
+Authenticode status: **NotSigned**. SHA-256:
+
+```text
+C3A7563955F6A1B1F20C5D220B98A2061567C320C559DC3E3A8825A21DEEF4D9
+```
+
+Quit the previous app instance before opening this file. The app has no automatic
+updater. Source and executable are distributed through the private repository's
+[v0.2.1 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.1).
 
 ## Ownership and security
 

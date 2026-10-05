@@ -28,22 +28,23 @@ export function BuildStats({ state }: { state: BuildState }) {
           : state.mode === 'live' ? 'no results reported' : 'awaiting test suite',
     },
     {
-      label: 'Architecture nodes',
-      value: state.nodes.length.toString().padStart(2, '0'),
+      label: state.mode === 'live' ? 'Indexed files' : 'Architecture nodes',
+      testId: 'architecture-nodes',
+      value: (state.mode === 'live' ? state.nodes.filter((node) => node.kind !== 'agent' && !!node.path).length : state.nodes.length).toString().padStart(2, '0'),
       icon: Boxes,
-      detail: `${state.edges.length} connections`,
+      detail: state.mode === 'live' ? `${state.edges.filter((edge) => edge.evidence === 'import').length} import links` : `${state.edges.length} connections`,
     },
   ];
   return (
     <section className="stats-grid" aria-label="Build statistics">
-      {stats.map(({ label, value, icon: Icon, detail }) => (
+      {stats.map(({ label, value, icon: Icon, detail, testId }) => (
         <div className="stat" key={label}>
           <div className="stat-label">
             <Icon size={14} />
             {label}
           </div>
           <div className="stat-bottom">
-            <strong data-testid={label.toLowerCase().replaceAll(' ', '-')}>{value}</strong>
+            <strong data-testid={testId ?? label.toLowerCase().replaceAll(' ', '-')}>{value}</strong>
             <span>{detail}</span>
           </div>
         </div>
