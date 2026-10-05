@@ -60,6 +60,10 @@ The app opens a resizable window, supports **Always on top**, and remembers its 
 
 Use **Connect your AI** for the existing cooperative MCP setup. The snippets launch a bundled helper, so MCP clients also need no installed Python. Client configuration and reporting instructions still require the setup described below; packaging does not add native vendor interception.
 
+Copy the MCP configuration from **your own app**. Its paths use your Windows user-data directory; another person's `C:/Users/...` paths will not work on your machine. The helper filename includes a hash of the bundled executable: the same helper build has the same suffix, and a different build can have a different suffix. `desktop-connection.json` keeps the same filename inside each person's CodeWatch data directory. After upgrading, use the configuration shown by the app if its helper path changed.
+
+To check the connection, ask your coding agent to use CodeWatch to report a short progress message and modify a source file. The report should appear in **Current activity**, and the save should appear in **File changes**. A saved file alone verifies the watcher; an accepted agent report also verifies the MCP connection.
+
 The portable executable extracts its bundled runtime automatically. Preferences, logs and a stable MCP helper live under `%APPDATA%/CodeWatch`; the discovery credential is encrypted with Windows DPAPI. Moving the portable executable does not break your MCP configuration. Sessions/history remain in memory in this version.
 
 This build is unsigned. [Windows build and verification details](docs/windows-packaging.md) describe how to reproduce it and the tested capabilities.
