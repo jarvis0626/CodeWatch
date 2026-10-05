@@ -1,6 +1,6 @@
 {
   "name": "codewatch-desktop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "CodeWatch local coding companion",
   "author": "CodeWatch contributors",
   "private": true,
@@ -20,8 +20,12 @@
     "productName": "CodeWatch",
     "asar": true,
     "directories": { "output": "../dist/windows" },
-    "files": ["main.cjs", "preload.cjs", "smoke.cjs", "package.json"],
-    "extraResources": [{ "from": "../build/sidecar/codewatch-helper.exe", "to": "codewatch-helper.exe" }],
+    "files": ["main.cjs", "preload.cjs", "phone-tunnel.cjs", "cloudflared.json", "smoke.cjs", "package.json"],
+    "extraResources": [
+      { "from": "../build/sidecar/codewatch-helper.exe", "to": "codewatch-helper.exe" },
+      { "from": "../build/vendor/cloudflared.exe", "to": "cloudflared.exe" },
+      { "from": "licenses", "to": "licenses" }
+    ],
     "win": {
       "target": [{ "target": "portable", "arch": ["x64"] }],
       "signAndEditExecutable": false,

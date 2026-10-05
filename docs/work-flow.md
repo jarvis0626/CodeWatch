@@ -27,6 +27,9 @@ Clicking a file opens the full app's project map at that file.
 and disables Always on top. Full and compact window positions are remembered
 separately, including full-window maximization.
 
+Each new app launch opens the full dashboard. To follow the same steps remotely,
+enable **Phone view** there and scan the QR code. See the [phone guide](phone-view.md).
+
 ## Read the steps
 
 - **Current:** the agent's latest unfinished report.

@@ -15,8 +15,8 @@ Durable replay and native vendor hooks remain separate work.
 
 ## Run the app
 
-Download the executable from the [v0.3.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.3.0),
-or build `dist/windows/CodeWatch-0.3.0-x64-portable.exe` locally. Copy it to a Windows x64
+Download the executable from the [v0.4.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.4.0),
+or build `dist/windows/CodeWatch-0.4.0-x64-portable.exe` locally. Copy it to a Windows x64
 machine and double-click it. Click **Choose folder** to start watching. Use
 **Connect your AI** for MCP configuration and reporting instructions.
 
@@ -25,6 +25,12 @@ Python, Node, git or Docker. Internet access is required for the developer build
 not ordinary local file observation. The executable unpacks Electron to a temporary
 directory and copies its headless helper into `%APPDATA%/CodeWatch/bin`.
 This is one file to distribute, with runtime files created automatically at launch.
+
+Every launch opens the full app, even after a compact pinned session. Completing
+or skipping the short tutorial saves that choice in the stable Windows profile,
+so it stays dismissed after restarting. **Phone view** is optional and starts off;
+it bundles its own connector and needs internet on both the PC and phone.
+[Phone setup and limitations](phone-view.md).
 
 The native window is resizable. **Always on top** opens the compact work flow;
 **Open full app** restores the full dashboard while keeping it pinned. Full and
@@ -48,8 +54,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps
 ```
 
 The script creates the Python environment if needed, installs the locked build
-dependencies, builds React, freezes the Python helper, and packages the portable
-executable. Once dependencies are installed, `-SkipDependencyInstall` repeats
+dependencies, verifies the pinned Cloudflare connector, builds React, freezes the
+Python helper, and packages the portable executable. The connector's release and
+SHA-256 are pinned in `desktop/cloudflared.json`; its license ships with the app.
+Once dependencies are installed, `-SkipDependencyInstall` repeats
 the build without installing them again. Developer desktop launch after building
 the helper:
 
@@ -184,6 +192,50 @@ The [v0.3.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.3.0
 distributes the source and portable executable. Quit the previous app before
 opening this file; there is no automatic updater.
 
+## Full app, tutorial and phone view: v0.4.0
+
+Every new launch opens the full app, including after a pinned companion session.
+Completing or skipping the four-step tutorial persists in the Windows profile.
+Optional phone sharing creates a private QR link to a separate read-only viewer
+through the bundled Cloudflare connector. See the [phone view guide](phone-view.md).
+
+The production build, lint, **132 backend tests, 33 frontend unit tests, 24 native
+tests and 14 browser tests** passed. These include tutorial persistence and save
+failure recovery, phone layout and pairing, sanitized snapshots, session expiry,
+project isolation, tunnel cancellation and revocation.
+
+The actual portable executable passed on **2026-10-05** with only Windows System32
+on PATH:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-windows.ps1 -Phone
+```
+
+The optional `-Phone` check needs internet. It uses the packaged connector and a
+separate browser over public HTTPS to verify private pairing, live connected
+steps, clickable files, cookie persistence after reload, exclusion of desktop
+routes and revocation when sharing stops. It also checks full startup after saved
+compact preferences, tutorial completion after reload, actual file saves, the
+pinned companion, export, tray behavior and clean owned-process shutdown.
+
+The isolated report is
+`.local/packaged-smoke-a408d0e1620f44bab774cc3aaac37f5b/result.json`. One saved-file
+sample reached the DOM in **230 ms**, or **85 ms** from event timestamp; these are
+individual samples. The frozen helper passed all seven MCP tools, accepted
+reports, DPAPI discovery and clean EOF shutdown; its report is
+`.local/packaged-mcp-v0.4.0-verification.json`.
+
+Artifact: `dist/windows/CodeWatch-0.4.0-x64-portable.exe`, **143,128,858 bytes**.
+Authenticode status: **NotSigned**. SHA-256:
+
+```text
+7BEF5B9BF3551E4DA9BE84EDCB25DD485578B64FF8EAF899616F38F169A7C0B4
+```
+
+The [v0.4.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.4.0)
+distributes the source and portable executable. Quit the previous app before
+opening this file; there is no automatic updater.
+
 ## Ownership and security
 
 ```mermaid
@@ -198,7 +250,7 @@ flowchart LR
 ```
 
 Electron uses a single-instance lock, a sandboxed renderer with context isolation,
-no Node integration, restrictive CSP and three validated preload actions. Native
+no Node integration, restrictive CSP and narrow validated preload actions. Native
 folder selection and window preferences are limited to the owned main frame.
 External navigation, new windows, webviews and downloads other than the explicit
 NDJSON export are blocked. Credentials are not exposed in renderer globals, URLs
@@ -223,6 +275,9 @@ credentials redacted. Preferences and logs live under `%APPDATA%/CodeWatch`.
 | Actual Codex/Claude/other vendor app connection | Not tested in this packaging milestone; configure using the existing guide |
 | Automatic vendor configuration, native hooks, VSIX, managed Codex sessions | Not implemented here |
 | Connected work flow and compact pinned companion | Implemented; see the [work flow guide](work-flow.md) |
+| Full startup and one-time tutorial | Implemented and tested in the portable executable |
+| Paired phone view across networks | Implemented and tested over public HTTPS; temporary Quick Tunnel, PC must stay online |
+| Permanent hosted dashboard | Not configured; Quick Tunnels have no uptime guarantee |
 | Durable SQLite replay | Not implemented; bounded session history remains in memory |
 | macOS/Linux or Windows ARM64 packaging | Not built or tested |
 | Installer, signing, automatic updates | No installer required; unsigned build, no updater |

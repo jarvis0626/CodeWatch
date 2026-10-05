@@ -16,6 +16,8 @@ import { IntegrationPanel, ProjectConnection } from './components/ProjectConnect
 import { DesktopControls } from './components/DesktopControls';
 import { ActivityFlow } from './components/ActivityFlow';
 import { useDesktopPreferences } from './hooks/useDesktopPreferences';
+import { IntroTutorial } from './components/IntroTutorial';
+import { PhoneSharePanel } from './components/PhoneSharePanel';
 
 export default function App() {
   const [mode, setMode] = useState<'live' | 'demo'>('live');
@@ -55,6 +57,10 @@ export default function App() {
     .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
   return (
     <>
+      <IntroTutorial completed={window.codewatchDesktop ? preferences?.tutorialCompleted : undefined} onComplete={async () => {
+        if (!window.codewatchDesktop) return;
+        setPreferences(await window.codewatchDesktop.setPreferences({ tutorialCompleted: true }));
+      }} />
       {!compact && <Topbar connection={state.connection} />}
       <div className={`app-shell ${compact ? 'companion-shell' : ''}`} data-testid="app-view" data-view={compact ? 'companion' : 'full'}>
         {!compact && <Sidebar mode={mode} session={state.session} />}
@@ -79,6 +85,7 @@ export default function App() {
             </div>
           )}
           {mode === 'live' && <IntegrationPanel />}
+          {mode === 'live' && <PhoneSharePanel watching={!!state.session?.watching} />}
           {state.connection === 'complete' && (
             <div className="notice success-notice" role="status">
               <CheckCircle2 size={16} />

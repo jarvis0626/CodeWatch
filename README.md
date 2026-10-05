@@ -15,6 +15,7 @@ You keep using your usual coding AI and editor. CodeWatch opens in its own deskt
 3. **Follow the work flow.** With the supplied reporting instructions, the agent describes its steps and names the files involved. Connected cards show their order and reported status. Select a card to see its file changes, results and known file connections. [Work flow guide](docs/work-flow.md).
 4. **Pin it beside your editor.** **Always on top** opens the compact companion, showing only the flow, latest report and working file. **Open full app** restores the complete dashboard while keeping it pinned.
 5. **Explore the project.** Open a folder or search for a file. Selecting it shows **Uses code from** and **Used by** lists, with agent-reported relationships explained separately. The full app includes the event log, command output and test results. File watching continues after the agent finishes. [Project map guide](docs/project-map.md).
+6. **Follow from your phone.** Enable **Phone view** and scan its QR code. The read-only progress view works across networks through a temporary internet connection. Keep the PC awake and CodeWatch online. [Phone view guide](docs/phone-view.md).
 
 ### Example: asking an AI to build login
 
@@ -33,6 +34,7 @@ You keep using your usual coding AI and editor. CodeWatch opens in its own deskt
 - [Open the Windows executable](#windows-desktop-no-installation)
 - [Run from source](#start-locally)
 - [Connect your AI or IDE](#connect-your-ai--ide)
+- [Watch progress on your phone](docs/phone-view.md)
 - [Capture commands and tests](#capture-actual-terminal-commands)
 - [Understand the dashboard](#what-the-real-dashboard-shows)
 - [Scanner coverage and limits](#scanner-coverage-and-limits)
@@ -52,9 +54,11 @@ The dashboard labels these sources. An indexed or settled file does not mean its
 
 ## Windows desktop: no installation
 
-**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.3.0/CodeWatch-0.3.0-x64-portable.exe)** from the [v0.3.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.3.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
+**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.4.0/CodeWatch-0.4.0-x64-portable.exe)** from the [v0.4.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.4.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
 
-If you build locally, the same file is at `dist/windows/CodeWatch-0.3.0-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
+If you build locally, the same file is at `dist/windows/CodeWatch-0.4.0-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
+
+Every launch opens the full app, including after a pinned companion session. A short first-run tutorial introduces folder watching, MCP reports, pinning and phone access. Completing or skipping it saves that choice in your Windows profile, so it stays dismissed on later launches.
 
 The app opens a resizable window. **Always on top** switches to the compact work flow companion; **Open full app** restores the complete dashboard with the pin retained, and **Unpin** restores the full app without the pin. Both window sizes and positions are remembered. Closing it quits by default. Enable **Close to tray** to keep observing after closing the window; restore it from the tray, or choose **Quit CodeWatch** to stop its backend. CodeWatch only stops its own service.
 
@@ -67,6 +71,8 @@ To check the connection, ask your coding agent to use CodeWatch to report a shor
 The portable executable extracts its bundled runtime automatically. Preferences, logs and a stable MCP helper live under `%APPDATA%/CodeWatch`; the discovery credential is encrypted with Windows DPAPI. Moving the portable executable does not break your MCP configuration. Sessions/history remain in memory in this version.
 
 This build is unsigned. [Windows build and verification details](docs/windows-packaging.md) describe how to reproduce it and the tested capabilities.
+
+Phone sharing is optional and starts off. **Enable phone view** creates a QR link to a separate read-only progress view through Cloudflare. It works on mobile data or another network while your PC stays awake and online. **Stop sharing**, changing projects, or quitting revokes it; it also expires after eight hours. The link is temporary, and the underlying Quick Tunnel has no uptime guarantee. [Phone access and connection details](docs/phone-view.md).
 
 ## Start locally
 
@@ -270,7 +276,7 @@ The live stream sends an initial `snapshot` containing session metadata, the las
 
 For direct local scripts, report HTTP JSON using the same routes. Producers must use current run IDs and project-relative paths; traversal, linked paths and common secret paths are rejected. Command outcomes must follow a started invocation, and older test attempts are rejected.
 
-The server binds to loopback. Browser origins are checked, including WebSockets; mutating HTTP calls require JSON. This local release does not provide public hosting/authentication. `CODEWATCH_ALLOWED_ORIGINS` can extend the frontend origin list. `CODEWATCH_SERVER_URL` configures bridge/CLI clients; MCP configuration uses the backend's configured server URL. Do not expose this local observer as an unauthenticated public service.
+The desktop API and MCP service bind to loopback. Browser origins are checked, including WebSockets; mutating HTTP calls require JSON. Optional phone sharing uses a separate, paired read-only viewer through a temporary tunnel; it does not publish the desktop API. `CODEWATCH_ALLOWED_ORIGINS` can extend the frontend origin list. `CODEWATCH_SERVER_URL` configures bridge/CLI clients; MCP configuration uses the backend's configured server URL. Do not expose the local observer as an unauthenticated public service.
 
 ## Demo mode
 
@@ -278,14 +284,14 @@ The original 36-second Todo simulation remains in the **Demo** tab. It emits 73 
 
 ## Development and verification
 
-The current implementation passed **114 backend tests, 33 frontend unit tests, 6 native-window tests, and 8 browser tests**, plus lint and a production build. Desktop checks and frozen MCP verification are recorded in [Windows packaging](docs/windows-packaging.md). These checks cover CodeWatch itself; they do not mean every vendor's IDE was manually tested.
+The current implementation passed **132 backend tests, 33 frontend unit tests, 24 native-window/tunnel tests, and 14 browser tests**, plus lint and a production build. Desktop checks and frozen MCP verification are recorded in [Windows packaging](docs/windows-packaging.md). These checks cover CodeWatch itself; they do not mean every vendor's IDE was manually tested.
 
 ```powershell
 .\backend\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
 .\backend\.venv\Scripts\python.exe -m pytest -q
 .\backend\.venv\Scripts\python.exe -m ruff check backend
 npm.cmd --prefix frontend test
-node --test desktop/main.test.cjs
+node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs
 npm.cmd --prefix frontend run build
 npm.cmd --prefix frontend run test:e2e
 ```
@@ -319,4 +325,4 @@ frontend/src/
 
 ## What is not automatic yet
 
-Native IDE-specific tool-call hooks, packaged marketplace extensions, intercepting every agent action, remote/cloud workspace observation, symbol-level control flow, runtime tracing, advanced language/alias resolution, multi-project tabs, durable session history, and public authenticated hosting. MCP and the event API are the extension points for adding those capabilities without coupling the graph to a particular model.
+Native IDE-specific tool-call hooks, packaged marketplace extensions, intercepting every agent action, remote/cloud workspace observation, symbol-level control flow, runtime tracing, advanced language/alias resolution, multi-project tabs, durable session history, and permanent hosted dashboards. MCP and the event API are the extension points for adding those capabilities without coupling the graph to a particular model.

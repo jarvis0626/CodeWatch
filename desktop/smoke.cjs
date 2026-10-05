@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { BrowserWindow } = require('electron');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 module.exports = async function smoke({ app, window, endpoint, token, discovery }) {
@@ -11,6 +12,7 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
   if (!resultPath || !project || !process.env.CODEWATCH_TEST_USER_DATA) throw new Error('Smoke test requires disposable paths');
   const checks = [];
   const started = Date.now();
+  let phoneWindow;
   window.show();
   const request = async (route, payload) => {
     const response = await fetch(endpoint + route, {
@@ -38,6 +40,30 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     assert.equal(renderer.node, 'undefined');
     assert.equal(renderer.credentialVisible, false);
     checks.push('Bundled dashboard and sandboxed preload render; credential stays HttpOnly');
+    assert.equal(await web.executeJavaScript(`document.querySelector('[data-testid="app-view"]').dataset.view`), 'full');
+    assert.ok(window.isAlwaysOnTop());
+    assert.equal((await web.executeJavaScript(`window.codewatchDesktop.getPreferences()`)).compact, false);
+    checks.push('Launching after a pinned companion session opens the full app');
+    assert.ok(await web.executeJavaScript(`document.querySelector('[data-testid="intro-tutorial"]').open`));
+    for (let index = 0; index < 3; index++) {
+      await web.executeJavaScript(`document.querySelector('[data-testid="tutorial-next"]').click()`);
+      await delay(80);
+    }
+    await web.executeJavaScript(`document.querySelector('[data-testid="tutorial-finish"]').click()`);
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (await web.executeJavaScript(`!document.querySelector('[data-testid="intro-tutorial"]')`)) break;
+      await delay(80);
+    }
+    assert.equal((await web.executeJavaScript(`window.codewatchDesktop.getPreferences()`)).tutorialCompleted, true);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(discovery), 'preferences.json'), 'utf8')).tutorialCompleted, true);
+    await web.reload();
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (await web.executeJavaScript(`!!document.querySelector('[data-testid="phone-share-panel"]')`)) break;
+      await delay(80);
+    }
+    assert.equal(await web.executeJavaScript(`!!document.querySelector('[data-testid="intro-tutorial"]')`), false);
+    await web.executeJavaScript(`window.codewatchDesktop.setPreferences({alwaysOnTop:false})`);
+    checks.push('Finishing the tutorial persists in the profile and stays dismissed after reload');
     const apiCheck = await web.executeJavaScript(`fetch('/api/session').then(r => r.status)`);
     assert.equal(apiCheck, 200);
     checks.push('Renderer API cookie authentication works');
@@ -169,6 +195,53 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     const rejected = await web.executeJavaScript(`window.codewatchDesktop.setPreferences({bad:'value'}).then(()=>false,()=>true)`);
     assert.equal(rejected, true);
     checks.push('Validated native preferences and always-on-top work');
+    if (process.env.CODEWATCH_SMOKE_PHONE === '1') {
+      const shared = await web.executeJavaScript(`window.codewatchDesktop.startPhoneShare()`);
+      assert.equal(shared.state, 'active', shared.error);
+      const phoneUrl = new URL(shared.url);
+      assert.equal(phoneUrl.protocol, 'https:');
+      assert.equal((await fetch(phoneUrl.origin + '/api/snapshot', { signal: AbortSignal.timeout(10000) })).status, 403);
+      assert.equal((await fetch(phoneUrl.origin + '/api/integrations', { signal: AbortSignal.timeout(10000) })).status, 404);
+      phoneWindow = new BrowserWindow({ width: 430, height: 850, show: false,
+        webPreferences: { partition: 'phone-smoke', contextIsolation: true, nodeIntegration: false, sandbox: true } });
+      await phoneWindow.loadURL(shared.url);
+      const phoneWeb = phoneWindow.webContents;
+      let phone;
+      for (let attempt = 0; attempt < 150; attempt++) {
+        phone = await phoneWeb.executeJavaScript(`({ready:!!document.querySelector('[data-testid="phone-viewer"]'),
+          steps:document.querySelectorAll('.flow-step').length, hash:location.hash,
+          native:!!window.codewatchDesktop, overflow:document.documentElement.scrollWidth>innerWidth,
+          text:document.body.innerText})`);
+        if (phone.steps === 3) break;
+        await delay(100);
+      }
+      assert.equal(phone.ready, true); assert.equal(phone.steps, 3); assert.equal(phone.hash, '');
+      assert.equal(phone.native, false); assert.equal(phone.overflow, false);
+      assert.ok(phone.text.includes('Fixture work is complete'));
+      assert.ok(!phone.text.includes(project));
+      const phoneCookies = await phoneWeb.session.cookies.get({ url: phoneUrl.origin });
+      const paired = phoneCookies.find(cookie => cookie.name === 'codewatch_phone');
+      assert.ok(paired?.httpOnly && paired.secure);
+      await phoneWeb.executeJavaScript(`document.querySelector('.flow-step').click()`);
+      await delay(100);
+      assert.ok(await phoneWeb.executeJavaScript(`document.querySelector('[data-testid="flow-step-details"]').innerText.includes('fixture.py')`));
+      fs.writeFileSync(path.join(path.dirname(resultPath), 'phone-view.png'), (await phoneWeb.capturePage()).toPNG());
+      await phoneWeb.reload();
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (await phoneWeb.executeJavaScript(`document.querySelectorAll('.flow-step').length===3`)) break;
+        await delay(100);
+      }
+      assert.equal(await phoneWeb.executeJavaScript(`document.querySelectorAll('.flow-step').length`), 3);
+      await web.executeJavaScript(`window.codewatchDesktop.stopPhoneShare()`);
+      assert.equal((await web.executeJavaScript(`window.codewatchDesktop.getPhoneStatus()`)).state, 'idle');
+      let afterStop = 0;
+      try { afterStop = (await fetch(phoneUrl.origin + '/api/snapshot', {
+        headers: { Cookie: `codewatch_phone=${paired.value}` }, signal: AbortSignal.timeout(10000),
+      })).status; } catch { /* A stopped tunnel can be unreachable immediately. */ }
+      assert.notEqual(afterStop, 200);
+      phoneWindow.destroy(); phoneWindow = undefined;
+      checks.push('Internet phone QR pairs a separate browser over public HTTPS, restores live steps, hides private APIs and revokes access');
+    }
     window.close(); await delay(150);
     assert.equal(window.isDestroyed(), false);
     assert.equal(window.isVisible(), false);
@@ -179,6 +252,7 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     fs.writeFileSync(resultPath, JSON.stringify({ ok: true, checks, eventToRenderMs, savedFileToRenderMs, elapsedMs: Date.now() - started,
       versions: process.versions, endpoint, helper: config.command }, null, 2));
   } catch (error) {
+    phoneWindow?.destroy();
     fs.writeFileSync(resultPath, JSON.stringify({ ok: false, checks, error: error.stack || error.message }, null, 2));
     throw error;
   }

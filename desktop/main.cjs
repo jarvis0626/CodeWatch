@@ -5,6 +5,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
+const { createPhoneTunnel } = require('./phone-tunnel.cjs');
+const tunnelManifest = require('./cloudflared.json');
 
 app.setName('CodeWatch');
 app.setPath('userData', path.join(app.getPath('appData'), 'CodeWatch'));
@@ -15,9 +17,9 @@ if (smoke && process.env.CODEWATCH_TEST_USER_DATA) {
 app.setAppUserModelId('local.codewatch.desktop');
 const owned = app.requestSingleInstanceLock();
 if (!owned) app.quit();
-let window, tray, child, endpoint, quitting = false, stopped = false, stopping;
+let window, tray, child, endpoint, quitting = false, stopped = false, stopping, phoneTunnel;
 let backendReady = false, showRequested = false;
-let settings = { alwaysOnTop: false, closeToTray: false, compact: false };
+let settings = { alwaysOnTop: false, closeToTray: false, compact: false, tutorialCompleted: false };
 let changingLayout = false;
 let token;
 const userData = app.getPath('userData');
@@ -36,22 +38,34 @@ function log(message) {
     fs.appendFileSync(logFile, `${new Date().toISOString()} ${String(message).replaceAll(token || '\0', '[redacted]').slice(0, 8000)}\n`);
   } catch { /* Diagnostics are best effort when the disk is full or unavailable. */ }
 }
-function persist() {
+function persist(value = settings, strict = false) {
   const temporary = preferencesFile + '.tmp';
   try {
-    fs.writeFileSync(temporary, JSON.stringify(settings));
+    fs.writeFileSync(temporary, JSON.stringify(value));
     fs.renameSync(temporary, preferencesFile);
-  } catch (error) { log(`Could not save preferences: ${error.message}`); }
+  } catch (error) {
+    log(`Could not save preferences: ${error.message}`);
+    if (strict) throw new Error('Could not save your preferences. Please try again.');
+  }
+}
+function loadPreferences() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(preferencesFile, 'utf8'));
+    // Launch into the full app; a prior companion session only restores its size.
+    settings = { alwaysOnTop: saved.alwaysOnTop === true, closeToTray: saved.closeToTray === true,
+      compact: false, tutorialCompleted: saved.tutorialCompleted === true, bounds: saved.bounds, compactBounds: saved.compactBounds,
+      fullMaximized: saved.fullMaximized === true };
+  } catch { /* First launch or malformed preferences: safe defaults. */ }
 }
 function preferences() {
-  return { alwaysOnTop: settings.alwaysOnTop, closeToTray: settings.closeToTray, compact: settings.compact };
+  return { alwaysOnTop: settings.alwaysOnTop, closeToTray: settings.closeToTray, compact: settings.compact, tutorialCompleted: settings.tutorialCompleted === true };
 }
 function notifyPreferences() {
   if (window && !window.isDestroyed()) window.webContents.send('codewatch:preferences-changed', preferences());
 }
 function setPreferences(patch) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
-      Object.keys(patch).some(key => !['alwaysOnTop', 'closeToTray', 'compact'].includes(key) || typeof patch[key] !== 'boolean')) {
+      Object.keys(patch).some(key => !['alwaysOnTop', 'closeToTray', 'compact', 'tutorialCompleted'].includes(key) || typeof patch[key] !== 'boolean')) {
     throw new Error('Invalid preferences');
   }
   // Pinning opens the companion. Opening the full app can leave it pinned.
@@ -62,7 +76,9 @@ function setPreferences(patch) {
     rememberBounds();
     if (!settings.compact) settings.fullMaximized = window.isMaximized();
   }
-  Object.assign(settings, patch, { compact: targetCompact });
+  const nextSettings = { ...settings, ...patch, compact: targetCompact };
+  persist(nextSettings, true);
+  Object.assign(settings, nextSettings);
   if (window && !window.isDestroyed()) {
     window.setAlwaysOnTop(settings.alwaysOnTop);
     if (layoutChanged) {
@@ -76,7 +92,7 @@ function setPreferences(patch) {
       } finally { changingLayout = false; }
     }
   }
-  persist(); updateTray(); notifyPreferences();
+  updateTray(); notifyPreferences();
   return preferences();
 }
 function localPage(url) {
@@ -102,6 +118,44 @@ function registerIPC() {
     trusted(event);
     return setPreferences(patch);
   });
+  ipcMain.handle('codewatch:get-phone-status', event => { trusted(event); return getPhoneTunnel().getStatus(); });
+  ipcMain.handle('codewatch:start-phone-share', event => { trusted(event); return getPhoneTunnel().start(); });
+  ipcMain.handle('codewatch:stop-phone-share', event => { trusted(event); return getPhoneTunnel().stop(); });
+}
+function installTunnel() {
+  const source = app.isPackaged ? path.join(process.resourcesPath, 'cloudflared.exe') : path.resolve(__dirname, '../build/vendor/cloudflared.exe');
+  const binary = fs.readFileSync(source);
+  if (crypto.createHash('sha256').update(binary).digest('hex') !== tunnelManifest.sha256) {
+    throw new Error('The bundled phone connector could not be verified. Re-download CodeWatch.');
+  }
+  const directory = path.join(userData, 'bin');
+  fs.mkdirSync(directory, { recursive: true });
+  const destination = path.join(directory, `cloudflared-${tunnelManifest.version}.exe`);
+  if (!fs.existsSync(destination) || crypto.createHash('sha256').update(fs.readFileSync(destination)).digest('hex') !== tunnelManifest.sha256) {
+    fs.writeFileSync(destination + '.tmp', binary, { mode: 0o700 });
+    fs.renameSync(destination + '.tmp', destination);
+  }
+  return destination;
+}
+function getPhoneTunnel() {
+  phoneTunnel ??= createPhoneTunnel({
+    executable: installTunnel,
+    desktopEndpoint: () => endpoint,
+    configPath: path.join(userData, 'phone-tunnel', 'empty.yml'),
+    request: async (route, body) => {
+      const response = await fetch(endpoint + route, {
+        method: body ? 'POST' : 'GET',
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(10_000),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Could not update phone sharing.');
+      return data;
+    },
+    onChange: value => { if (window && !window.isDestroyed()) window.webContents.send('codewatch:phone-status-changed', value); },
+    log,
+  });
+  return phoneTunnel;
 }
 function show() {
   if (quitting) return;
@@ -110,6 +164,11 @@ function show() {
     if (window.isMinimized()) window.restore();
     window.show(); window.focus();
   }
+}
+function openFullApp() {
+  if (quitting) return;
+  setPreferences({ compact: false });
+  show();
 }
 function updateTray() {
   if (!tray) return;
@@ -268,6 +327,7 @@ function rememberBounds() {
   }
 }
 async function stopBackend() {
+  await phoneTunnel?.close();
   if (stopping) return stopping;
   if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return;
   const ownedChild = child;
@@ -295,7 +355,7 @@ function trayImage() {
   return nativeImage.createFromBitmap(pixels, { width: size, height: size });
 }
 if (owned) {
-  app.on('second-instance', show);
+  app.on('second-instance', openFullApp);
   app.on('activate', show);
   app.on('window-all-closed', () => { if (!settings.closeToTray) app.quit(); });
   app.on('before-quit', event => {
@@ -306,12 +366,7 @@ if (owned) {
   });
   app.whenReady().then(async () => {
     fs.mkdirSync(userData, { recursive: true });
-    try {
-      const saved = JSON.parse(fs.readFileSync(preferencesFile, 'utf8'));
-      settings = { alwaysOnTop: saved.alwaysOnTop === true, closeToTray: saved.closeToTray === true,
-        compact: typeof saved.compact === 'boolean' ? saved.compact : saved.alwaysOnTop === true,
-        bounds: saved.bounds, compactBounds: saved.compactBounds, fullMaximized: saved.fullMaximized === true };
-    } catch { /* First launch or malformed preferences: safe defaults. */ }
+    loadPreferences();
     await startBackend();
     if (quitting) return;
     registerIPC(); await openWindow();

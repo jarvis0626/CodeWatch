@@ -34,7 +34,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm.cmd --prefix frontend test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test desktop/main.test.cjs
+          node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Packaged smoke without developer runtimes on PATH
         shell: pwsh

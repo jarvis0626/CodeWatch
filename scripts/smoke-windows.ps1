@@ -1,4 +1,4 @@
-param([string]$Executable = '')
+param([string]$Executable = '', [switch]$Phone)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 if (-not $Executable) {
@@ -13,13 +13,18 @@ New-Item -ItemType Directory -Path $taskProject -Force | Out-Null
 Set-Content -LiteralPath (Join-Path $taskProject 'data.py') -Value 'value = 1'
 Set-Content -LiteralPath (Join-Path $taskProject 'fixture.py') -Value 'from data import value'
 $taskResult = Join-Path $taskDir 'result.json'
+$taskProfile = Join-Path $taskDir 'user-data'
+New-Item -ItemType Directory -Path $taskProfile -Force | Out-Null
+# Exercise startup after a prior pinned companion session and an unfinished tutorial.
+Set-Content -LiteralPath (Join-Path $taskProfile 'preferences.json') -Value '{"alwaysOnTop":true,"compact":true,"closeToTray":false,"tutorialCompleted":false}'
 $taskPathBefore = $env:PATH
 $taskNodeBefore = $env:ELECTRON_RUN_AS_NODE
 try {
     # The tested app can only find Windows system programs, not Python/Node/Docker.
     $env:PATH = Join-Path $env:SystemRoot 'System32'
     Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-    $env:CODEWATCH_TEST_USER_DATA = Join-Path $taskDir 'user-data'
+    $env:CODEWATCH_TEST_USER_DATA = $taskProfile
+    if ($Phone) { $env:CODEWATCH_SMOKE_PHONE = '1' }
     $env:CODEWATCH_SMOKE_PROJECT = $taskProject
     $env:CODEWATCH_SMOKE_RESULT = $taskResult
     $taskProcess = Start-Process -FilePath $taskExe -ArgumentList '--smoke-test' -WindowStyle Hidden -PassThru
@@ -39,5 +44,5 @@ try {
 finally {
     $env:PATH = $taskPathBefore
     $env:ELECTRON_RUN_AS_NODE = $taskNodeBefore
-    Remove-Item Env:CODEWATCH_TEST_USER_DATA,Env:CODEWATCH_SMOKE_PROJECT,Env:CODEWATCH_SMOKE_RESULT -ErrorAction SilentlyContinue
+    Remove-Item Env:CODEWATCH_TEST_USER_DATA,Env:CODEWATCH_SMOKE_PROJECT,Env:CODEWATCH_SMOKE_RESULT,Env:CODEWATCH_SMOKE_PHONE -ErrorAction SilentlyContinue
 }

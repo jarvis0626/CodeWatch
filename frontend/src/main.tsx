@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client';
 import '@xyflow/react/dist/style.css';
 import './styles.css';
 import App from './App';
+import { PhoneViewer } from './components/PhoneViewer';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {location.pathname === '/phone' ? <PhoneViewer /> : <App />}
   </StrictMode>,
 );

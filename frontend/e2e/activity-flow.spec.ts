@@ -13,7 +13,7 @@ test('connected steps retain their changes, selection, and reported target in th
     await writeFile(resolve(project, 'src/data.ts'), 'export const value = 1;\n');
     await writeFile(resolve(project, 'src/app.ts'), "import { value } from './data';\nexport const app = value;\n");
     await page.addInitScript(() => {
-      let preferences = { alwaysOnTop: false, closeToTray: false, compact: false };
+      let preferences = { alwaysOnTop: false, closeToTray: false, compact: false, tutorialCompleted: true };
       const listeners = new Set<(value: typeof preferences) => void>();
       window.codewatchDesktop = {
         chooseFolder: async () => null,
@@ -25,6 +25,10 @@ test('connected steps retain their changes, selection, and reported target in th
           return { ...preferences };
         },
         onPreferencesChanged: (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+        getPhoneStatus: async () => ({ state: 'idle' }),
+        startPhoneShare: async () => ({ state: 'idle' }),
+        stopPhoneShare: async () => ({ state: 'idle' }),
+        onPhoneStatusChanged: () => () => {},
       };
     });
     await page.goto('/');

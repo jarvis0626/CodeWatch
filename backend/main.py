@@ -21,6 +21,7 @@ from backend.agent.simulator import DEFAULT_EVENT_INTERVAL, simulate_build  # no
 from backend.models.events import StartBuild, event_adapter  # noqa: E402
 from backend.observer.manager import WatchManager  # noqa: E402
 from backend.observer.routes import make_router  # noqa: E402
+from backend.phone import PhoneShare  # noqa: E402
 
 logger = logging.getLogger("codewatch")
 LOCAL_ORIGINS = [
@@ -41,6 +42,7 @@ def create_app(
     discovery_path: str | None = None,
 ) -> FastAPI:
     manager = WatchManager(watch_interval)
+    phone_share = PhoneShare(manager)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -49,10 +51,12 @@ def create_app(
         try:
             yield
         finally:
+            await phone_share.close()
             await manager.close()
 
-    app = FastAPI(title="CodeWatch", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(title="CodeWatch", version="0.4.0", lifespan=lifespan)
     app.state.watch_manager = manager
+    app.state.phone_share = phone_share
     origins = os.getenv("CODEWATCH_ALLOWED_ORIGINS", ",".join(LOCAL_ORIGINS)).split(",")
     origins = [origin.strip() for origin in origins if origin.strip()]
     origins = [server_url] if desktop_token else list(dict.fromkeys([*origins, server_url]))
@@ -81,6 +85,7 @@ def create_app(
         return response
 
     app.include_router(make_router(manager, origins, server_url, discovery_path=discovery_path))
+    app.include_router(phone_share.router())
     if desktop_token:
         from backend.desktop_security import DesktopBoundary
 

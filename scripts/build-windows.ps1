@@ -19,6 +19,8 @@ try {
         & npm.cmd --prefix desktop ci
         if ($LASTEXITCODE -ne 0) { throw 'Installing desktop dependencies failed.' }
     }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-tunnel.ps1
+    if ($LASTEXITCODE -ne 0) { throw 'Preparing the bundled phone connector failed.' }
     & npm.cmd --prefix frontend run build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
     & $taskPython -m PyInstaller --noconfirm --clean --distpath build/sidecar --workpath build/pyinstaller desktop/sidecar.spec

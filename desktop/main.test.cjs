@@ -10,12 +10,14 @@ const area = { x: 0, y: 0, width: 1920, height: 1080 };
 const full = { x: 100, y: 80, width: 1280, height: 900 };
 
 function desktop() {
+  let failSave = false;
   const handlers = new Map();
   const notifications = [];
   const writes = new Map();
   const nativeWindow = {
     rectangle: { ...full }, normal: { ...full }, maximized: false, pinned: false,
-    minimum: [], webContents: { mainFrame: { url: 'http://127.0.0.1:43210/' }, send: (...args) => notifications.push(args) },
+    minimum: [], visible: false, focused: false,
+    webContents: { mainFrame: { url: 'http://127.0.0.1:43210/' }, send: (...args) => notifications.push(args) },
     isDestroyed: () => false, isMinimized: () => false,
     isMaximized() { return this.maximized; },
     getBounds() { return { ...this.rectangle }; },
@@ -23,6 +25,8 @@ function desktop() {
     setBounds(value) { this.rectangle = { ...value }; this.normal = { ...value }; },
     setMinimumSize(...value) { this.minimum = value; },
     setAlwaysOnTop(value) { this.pinned = value; },
+    show() { this.visible = true; },
+    focus() { this.focused = true; },
     maximize() { this.normal = { ...this.rectangle }; this.rectangle = { ...area }; this.maximized = true; },
     unmaximize() { this.rectangle = { ...this.normal }; this.maximized = false; },
   };
@@ -33,20 +37,27 @@ function desktop() {
     screen: { getAllDisplays: () => [{ workArea: area }], getDisplayMatching: () => ({ workArea: area }),
       getPrimaryDisplay: () => ({ workArea: area }) },
   };
-  const fakeFs = { writeFileSync: (name, body) => writes.set(name, body), renameSync: (from, to) => {
+  const fakeFs = { readFileSync: name => {
+    if (!writes.has(name)) throw new Error('ENOENT');
+    return writes.get(name);
+  }, writeFileSync: (name, body) => {
+    if (failSave && name.endsWith('preferences.json.tmp')) throw new Error('Disk unavailable');
+    writes.set(name, body);
+  }, renameSync: (from, to) => {
     writes.set(to, writes.get(from)); writes.delete(from);
   }, mkdirSync() {}, existsSync: () => false, appendFileSync() {} };
   const context = { require: name => name === 'electron' ? electron : name === 'node:fs' ? fakeFs : require(name),
     __dirname, process: { argv: [], env: {} }, module: { exports: {} }, URL, Buffer, setTimeout, clearTimeout, fetch };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'main.cjs'), 'utf8') + `
-    module.exports = { preferences, setPreferences, rememberBounds, registerIPC, bounds,
+    module.exports = { preferences, setPreferences, rememberBounds, registerIPC, bounds, loadPreferences, openFullApp,
+      preferencesFile,
       getSettings: () => settings, setWindow: value => { window = value; },
       setEndpoint: value => { endpoint = value; }, setSettings: value => { settings = value; } };
   `, context);
   const main = context.module.exports;
   main.setWindow(nativeWindow);
   main.setEndpoint('http://127.0.0.1:43210');
-  return { main, nativeWindow, notifications, handlers, writes };
+  return { main, nativeWindow, notifications, handlers, writes, setFailSave: value => { failSave = value; } };
 }
 
 test('pinning opens the compact companion and retains the full window bounds', () => {
@@ -61,6 +72,60 @@ test('pinning opens the compact companion and retains the full window bounds', (
   assert.equal(notifications.at(-1)[0], 'codewatch:preferences-changed');
   assert.equal(notifications.at(-1)[1].compact, true);
   assert.ok([...writes.values()].some(value => JSON.parse(value).compact));
+});
+
+test('new launches load the full app while retaining pin and both window histories', () => {
+  for (const compact of [true, false, undefined]) {
+    const { main, writes } = desktop();
+    const companion = { x: 1300, y: 80, width: 480, height: 640 };
+    writes.set(main.preferencesFile, JSON.stringify({ alwaysOnTop: true, closeToTray: true, compact,
+      bounds: full, compactBounds: companion, fullMaximized: true }));
+    main.loadPreferences();
+    assert.equal(main.preferences().compact, false);
+    assert.equal(main.preferences().alwaysOnTop, true);
+    assert.equal(main.preferences().closeToTray, true);
+    assert.equal(main.getSettings().fullMaximized, true);
+    assert.equal(JSON.stringify(main.getSettings().bounds), JSON.stringify(full));
+    assert.equal(JSON.stringify(main.getSettings().compactBounds), JSON.stringify(companion));
+    assert.equal(main.bounds().width, full.width);
+    assert.equal(main.bounds().height, full.height);
+  }
+});
+
+test('tutorial completion persists across launches and a failed save cannot dismiss it', () => {
+  const { main, writes, setFailSave } = desktop();
+  assert.equal(main.preferences().tutorialCompleted, false);
+  setFailSave(true);
+  assert.throws(() => main.setPreferences({ tutorialCompleted: true }), /Could not save/);
+  assert.equal(main.preferences().tutorialCompleted, false);
+  assert.equal(writes.has(main.preferencesFile), false);
+  setFailSave(false);
+  main.setPreferences({ tutorialCompleted: true });
+  main.loadPreferences();
+  assert.equal(main.preferences().tutorialCompleted, true);
+  assert.equal(main.preferences().compact, false);
+});
+
+test('phone controls reject frames outside the desktop main renderer', () => {
+  const { main, handlers, nativeWindow } = desktop();
+  main.registerIPC();
+  for (const channel of ['codewatch:get-phone-status', 'codewatch:start-phone-share', 'codewatch:stop-phone-share']) {
+    assert.throws(() => handlers.get(channel)({ sender: {}, senderFrame: {} }), /Untrusted/);
+    assert.throws(() => handlers.get(channel)({ sender: nativeWindow.webContents, senderFrame: { url: 'https://attacker.example' } }), /Untrusted/);
+  }
+});
+
+test('opening a second EXE reveals the full app without clearing the pin or companion history', () => {
+  const { main, nativeWindow } = desktop();
+  main.setPreferences({ alwaysOnTop: true });
+  const companion = { ...nativeWindow.rectangle };
+  main.openFullApp();
+  assert.equal(main.preferences().compact, false);
+  assert.equal(nativeWindow.pinned, true);
+  assert.equal(nativeWindow.visible, true);
+  assert.equal(nativeWindow.focused, true);
+  assert.deepEqual(nativeWindow.rectangle, full);
+  assert.deepEqual(main.getSettings().compactBounds, companion);
 });
 
 test('opening the full app keeps the pin and restores its bounds after resizing the companion', () => {
