@@ -13,6 +13,7 @@ import { useAgentEvents } from './hooks/useAgentEvents';
 import { DEFAULT_PROMPT } from './config';
 import { useLiveEvents } from './hooks/useLiveEvents';
 import { IntegrationPanel, ProjectConnection } from './components/ProjectConnection';
+import { DesktopControls } from './components/DesktopControls';
 
 export default function App() {
   const [mode, setMode] = useState<'live' | 'demo'>('live');
@@ -41,7 +42,7 @@ export default function App() {
       <div className="app-shell">
         <Sidebar mode={mode} session={state.session} />
         <main>
-          <div className="workspace-toolbar"><span className="eyebrow">CODEWATCH / OBSERVATORY</span><div className="mode-switch" role="group" aria-label="Workspace mode"><button className={mode === 'live' ? 'active' : ''} aria-pressed={mode === 'live'} onClick={() => { reset(); setMode('live'); }}><Radio size={12} />Live project</button><button className={mode === 'demo' ? 'active' : ''} aria-pressed={mode === 'demo'} onClick={() => setMode('demo')}><FlaskConical size={12} />Demo</button></div></div>
+          <div className="workspace-toolbar"><span className="eyebrow">CODEWATCH / OBSERVATORY</span><div className="workspace-controls"><DesktopControls /><div className="mode-switch" role="group" aria-label="Workspace mode"><button className={mode === 'live' ? 'active' : ''} aria-pressed={mode === 'live'} onClick={() => { reset(); setMode('live'); }}><Radio size={12} />Live project</button><button className={mode === 'demo' ? 'active' : ''} aria-pressed={mode === 'demo'} onClick={() => setMode('demo')}><FlaskConical size={12} />Demo</button></div></div></div>
           {mode === 'live' ? <ProjectConnection session={state.session} busy={monitor.busy} watch={monitor.watch} stop={monitor.stop} /> : <BuildHeader
             prompt={prompt}
             setPrompt={setPrompt}

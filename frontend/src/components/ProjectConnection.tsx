@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Braces, Check, ChevronRight, Copy, FolderOpen, LoaderCircle, Plug, Radio, Square, Terminal } from 'lucide-react';
 import type { SessionInfo } from '../types/events';
 import { apiRequest } from '../hooks/useLiveEvents';
+import type {} from '../types/desktop';
 
 interface Props {
   session: SessionInfo | null;
@@ -12,16 +13,37 @@ interface Props {
 export function ProjectConnection({ session, busy, watch, stop }: Props) {
   const [path, setPath] = useState('');
   const [agent, setAgent] = useState('');
+  const [choosing, setChoosing] = useState(false);
+  const [folderError, setFolderError] = useState('');
+  const disabled = busy || choosing;
   useEffect(() => { if (session) { setPath(session.projectPath); setAgent(session.agentName ?? ''); } }, [session?.runId]);
+  async function chooseFolder() {
+    if (!window.codewatchDesktop || disabled) return;
+    setChoosing(true);
+    setFolderError('');
+    try {
+      const folder = await window.codewatchDesktop.chooseFolder();
+      if (folder) {
+        setPath(folder);
+        await watch(folder, agent);
+      }
+    } catch {
+      setFolderError('Could not open this project folder. Please try again or enter its path.');
+    } finally {
+      setChoosing(false);
+    }
+  }
   return <section className="build-header" id="overview">
     <div className="breadcrumbs"><Braces size={14} /><span>Workspace</span><ChevronRight size={13} /><span className="breadcrumb-current">{session?.projectName ?? 'Connect a project'}</span></div>
     <div className="page-heading"><div><h1>Your code. The whole picture.</h1><p>Follow real changes, see the connections, and understand what your AI is building.</p></div><span className="simulation-badge real-badge"><Radio size={13} />{session?.watching ? 'Watching project' : 'Live project'}</span></div>
-    <form className="project-connect-form" onSubmit={(event) => { event.preventDefault(); if (path.trim()) watch(path.trim(), agent); }}>
-      <div className="prompt-bar project-path"><label htmlFor="project-path"><FolderOpen size={17} /><span className="sr-only">Project folder</span></label><input id="project-path" value={path} onChange={(event) => setPath(event.target.value)} spellCheck={false} placeholder="Absolute project folder, e.g. D:\Projects\my-app" required disabled={busy} />
-        {session?.watching && <button className="button reset-button" type="button" onClick={stop} disabled={busy}><Square size={12} /><span>Stop watching</span></button>}
-        <button className="button primary-button" type="submit" disabled={busy || !path.trim()}>{busy ? <LoaderCircle className="spin" size={14} /> : <Radio size={14} />}Watch project</button>
+    <form className="project-connect-form" onSubmit={(event) => { event.preventDefault(); if (!disabled && path.trim()) { setFolderError(''); watch(path.trim(), agent); } }}>
+      <div className="prompt-bar project-path"><label htmlFor="project-path"><FolderOpen size={17} /><span className="sr-only">Project folder</span></label><input id="project-path" value={path} onChange={(event) => setPath(event.target.value)} spellCheck={false} placeholder="Absolute project folder, e.g. D:\Projects\my-app" required disabled={disabled} />
+        {window.codewatchDesktop && <button className="button native-folder-button" type="button" onClick={() => void chooseFolder()} disabled={disabled}><FolderOpen size={14} />Choose folder</button>}
+        {session?.watching && <button className="button reset-button" type="button" onClick={stop} disabled={disabled}><Square size={12} /><span>Stop watching</span></button>}
+        <button className="button primary-button" type="submit" disabled={disabled || !path.trim()}>{disabled ? <LoaderCircle className="spin" size={14} /> : <Radio size={14} />}Watch project</button>
       </div>
-      <div className="project-options"><label htmlFor="agent-label">Session label <span>(optional)</span></label><input id="agent-label" value={agent} onChange={(event) => setAgent(event.target.value)} placeholder="e.g. Antigravity, Codex, Cursor" maxLength={100} /><span>A label for you. File changes do not identify which tool made them.</span></div>
+      <div className="project-options"><label htmlFor="agent-label">Session label <span>(optional)</span></label><input id="agent-label" value={agent} onChange={(event) => setAgent(event.target.value)} placeholder="e.g. Antigravity, Codex, Cursor" maxLength={100} disabled={disabled} /><span>A label for you. File changes do not identify which tool made them.</span></div>
+      {folderError && <p className="inline-error" role="alert">{folderError}</p>}
     </form>
     <div className="prompt-note"><span>Choose the same local folder your IDE uses. Connect its AI below to show reported plans and progress.</span><span>{session ? `${session.trackedFiles} tracked files` : 'Local · No API keys'}</span></div>
     {session?.warnings.map((warning, index) => <div className="notice project-warning" key={index}>{warning}</div>)}

@@ -14,5 +14,6 @@ __pycache__/
 test-results/
 playwright-report/
 .local/
+build/
 workspace/*
 !workspace/.gitkeep

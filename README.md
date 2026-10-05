@@ -2,13 +2,13 @@
 
 **See what your coding agent is building, and how the project connects.**
 
-CodeWatch runs beside your existing editor or AI tool. Point it at a local project to see source files and import relationships change live. Connect its MCP server to an agent to see the agent's current task, affected files, reported architecture, commands, and test outcomes in the same graph.
+CodeWatch runs beside your existing editor or AI tool. On Windows, open the portable desktop executable and choose your project folder. Source files and import relationships change live. Connect its MCP server to an agent to see reported tasks, affected files, architecture, commands, and test outcomes in the same graph.
 
 ![CodeWatch watching a real project](docs/codewatch-live.png)
 
 ## How it works, in plain language
 
-You keep using your usual coding AI and editor. CodeWatch opens in a browser beside them and turns the work into a live map.
+You keep using your usual coding AI and editor. CodeWatch opens in its own desktop window and turns the work into a live map. The source CLI also supports the browser dashboard.
 
 1. **Choose your project folder.** CodeWatch reads supported source files and draws their import connections. Saving, creating, or deleting a file updates the map.
 2. **Connect your AI.** Add the configuration from **Connect your AI** to an MCP-capable coding tool. MCP (Model Context Protocol) is the interface that lets an agent call CodeWatch's reporting tools.
@@ -26,11 +26,12 @@ You keep using your usual coding AI and editor. CodeWatch opens in a browser bes
 | The test command runs through the wrapper and writes a fresh JUnit report | Its actual exit code and individual test outcomes appear. |
 | The AI reports completion | The task becomes complete; the map stays connected for later edits. |
 
-**File changes are automatic. Task explanations need a cooperating agent.** CodeWatch does not read private reasoning or capture every AI action just because the integration is installed. The browser dashboard is ready to use; this release does not include a marketplace IDE extension.
+**File changes are automatic. Task explanations need a cooperating agent.** CodeWatch does not read private reasoning or capture every AI action just because the integration is installed. This build does not include a marketplace IDE extension.
 
 ### Find your way around
 
-- [Install and run](#start-locally)
+- [Open the Windows executable](#windows-desktop-no-installation)
+- [Run from source](#start-locally)
 - [Connect your AI or IDE](#connect-your-ai--ide)
 - [Capture commands and tests](#capture-actual-terminal-commands)
 - [Understand the dashboard](#what-the-real-dashboard-shows)
@@ -48,6 +49,20 @@ You keep using your usual coding AI and editor. CodeWatch opens in a browser bes
 | Explicit command wrapper | Executed command, working directory, output, exit code; fresh JUnit results | Commands launched outside the wrapper |
 
 The dashboard labels these sources. An indexed or settled file does not mean its code is correct. Import edges show static dependencies; an agent-reported edge can describe a higher-level connection such as a browser calling an API. Neither is a runtime trace.
+
+## Windows desktop: no installation
+
+**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.2.0/CodeWatch-0.2.0-x64-portable.exe)** from the [v0.2.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
+
+If you build locally, the same file is at `dist/windows/CodeWatch-0.2.0-x64-portable.exe`. GitHub downloads require access to this repository.
+
+The app opens a resizable window, supports **Always on top**, and remembers its position. Closing it quits by default. Enable **Close to tray** to keep observing after closing the window; restore it from the tray, or choose **Quit CodeWatch** to stop its backend. CodeWatch only stops its own service.
+
+Use **Connect your AI** for the existing cooperative MCP setup. The snippets launch a bundled helper, so MCP clients also need no installed Python. Client configuration and reporting instructions still require the setup described below; packaging does not add native vendor interception.
+
+The portable executable extracts its bundled runtime automatically. Preferences, logs and a stable MCP helper live under `%APPDATA%/CodeWatch`; the discovery credential is encrypted with Windows DPAPI. Moving the portable executable does not break your MCP configuration. Sessions/history remain in memory in this version.
+
+This build is unsigned. [Windows build and verification details](docs/windows-packaging.md) describe how to reproduce it and the tested capabilities.
 
 ## Start locally
 
@@ -257,7 +272,7 @@ The original 36-second Todo simulation remains in the **Demo** tab. It emits 73 
 
 ## Development and verification
 
-The current implementation passed **67 backend tests, 13 frontend unit tests, and 6 browser tests**, plus a production build. A separate browser check verified the single-process launcher, real captured test results, and file-connection explanations. These checks cover CodeWatch itself; they do not mean every vendor's IDE was manually tested.
+The current implementation passed **111 backend tests, 13 frontend unit tests, and 6 browser tests**, plus lint and a production build. Desktop checks and frozen MCP verification are recorded in [Windows packaging](docs/windows-packaging.md). These checks cover CodeWatch itself; they do not mean every vendor's IDE was manually tested.
 
 ```powershell
 .\backend\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt

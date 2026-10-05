@@ -1,0 +1,287 @@
+'use strict';
+const { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, screen, session } = require('electron');
+const { spawn } = require('node:child_process');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const readline = require('node:readline');
+
+app.setName('CodeWatch');
+app.setPath('userData', path.join(app.getPath('appData'), 'CodeWatch'));
+const smoke = process.argv.includes('--smoke-test');
+if (smoke && process.env.CODEWATCH_TEST_USER_DATA) {
+  app.setPath('userData', path.resolve(process.env.CODEWATCH_TEST_USER_DATA));
+}
+app.setAppUserModelId('local.codewatch.desktop');
+const owned = app.requestSingleInstanceLock();
+if (!owned) app.quit();
+let window, tray, child, endpoint, quitting = false, stopped = false, stopping;
+let backendReady = false, showRequested = false;
+let settings = { alwaysOnTop: false, closeToTray: false };
+let token;
+const userData = app.getPath('userData');
+const discovery = path.join(userData, 'desktop-connection.json');
+const preferencesFile = path.join(userData, 'preferences.json');
+const logFile = path.join(userData, 'logs', 'desktop.log');
+
+function log(message) {
+  // Logging must never interrupt service shutdown or turn a handled error into a crash.
+  try {
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    if (fs.existsSync(logFile) && fs.statSync(logFile).size > 1_000_000) {
+      fs.rmSync(logFile + '.previous', { force: true });
+      fs.renameSync(logFile, logFile + '.previous');
+    }
+    fs.appendFileSync(logFile, `${new Date().toISOString()} ${String(message).replaceAll(token || '\0', '[redacted]').slice(0, 8000)}\n`);
+  } catch { /* Diagnostics are best effort when the disk is full or unavailable. */ }
+}
+function persist() {
+  const temporary = preferencesFile + '.tmp';
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(settings));
+    fs.renameSync(temporary, preferencesFile);
+  } catch (error) { log(`Could not save preferences: ${error.message}`); }
+}
+function preferences() {
+  return { alwaysOnTop: settings.alwaysOnTop, closeToTray: settings.closeToTray };
+}
+function localPage(url) {
+  try {
+    const parsed = new URL(url);
+    return !!endpoint && parsed.protocol === 'http:' && !parsed.username && !parsed.password && parsed.origin === endpoint;
+  } catch { return false; }
+}
+function trusted(event) {
+  if (!window || window.isDestroyed() || event.sender !== window.webContents ||
+      event.senderFrame !== window.webContents.mainFrame || !localPage(event.senderFrame?.url)) {
+    throw new Error('Untrusted desktop request');
+  }
+}
+function registerIPC() {
+  ipcMain.handle('codewatch:choose-folder', async (event) => {
+    trusted(event);
+    const result = await dialog.showOpenDialog(window, { title: 'Choose a project to watch', properties: ['openDirectory'] });
+    return result.canceled ? null : result.filePaths[0];
+  });
+  ipcMain.handle('codewatch:get-preferences', (event) => { trusted(event); return preferences(); });
+  ipcMain.handle('codewatch:set-preferences', (event, patch) => {
+    trusted(event);
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
+        Object.keys(patch).some(key => !['alwaysOnTop', 'closeToTray'].includes(key) || typeof patch[key] !== 'boolean')) {
+      throw new Error('Invalid preferences');
+    }
+    Object.assign(settings, patch);
+    window.setAlwaysOnTop(settings.alwaysOnTop);
+    persist(); updateTray();
+    return preferences();
+  });
+}
+function show() {
+  if (quitting) return;
+  showRequested = true;
+  if (window && !window.isDestroyed()) {
+    if (window.isMinimized()) window.restore();
+    window.show(); window.focus();
+  }
+}
+function updateTray() {
+  if (!tray) return;
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Show CodeWatch', click: show },
+    { label: 'Always on top', type: 'checkbox', checked: settings.alwaysOnTop, click: () => {
+      settings.alwaysOnTop = !settings.alwaysOnTop; window?.setAlwaysOnTop(settings.alwaysOnTop); persist(); updateTray();
+    } },
+    { label: 'Hide window (continue watching)', click: () => window?.hide() },
+    { type: 'separator' },
+    { label: 'Quit CodeWatch', click: () => app.quit() },
+  ]));
+}
+function installHelper() {
+  const source = app.isPackaged ? path.join(process.resourcesPath, 'codewatch-helper.exe') :
+    path.resolve(__dirname, '../build/sidecar/codewatch-helper.exe');
+  const binary = fs.readFileSync(source);
+  const hash = crypto.createHash('sha256').update(binary).digest('hex');
+  // MCP config must survive the portable launcher's temporary extraction directory.
+  const directory = path.join(userData, 'bin');
+  fs.mkdirSync(directory, { recursive: true });
+  const destination = path.join(directory, `codewatch-helper-${hash.slice(0, 16)}.exe`);
+  if (!fs.existsSync(destination) || crypto.createHash('sha256').update(fs.readFileSync(destination)).digest('hex') !== hash) {
+    fs.writeFileSync(destination + '.tmp', binary, { mode: 0o700 });
+    fs.renameSync(destination + '.tmp', destination);
+  }
+  return destination;
+}
+async function startBackend() {
+  token = crypto.randomBytes(32).toString('hex');
+  const executable = installHelper();
+  child = spawn(executable, ['serve', '--discovery', discovery], {
+    windowsHide: true, cwd: userData, stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, CODEWATCH_DESKTOP_TOKEN: token, PYTHONUTF8: '1' },
+  });
+  child.stderr.on('data', bytes => log(bytes.toString('utf8')));
+  child.on('error', error => log(`Owned service error: ${error.message}`));
+  child.stdin.on('error', error => log(`Service control pipe: ${error.message}`));
+  child.on('exit', (code) => {
+    log(`Owned service exited (${code})`);
+    if (backendReady && !quitting) {
+      if (!smoke) dialog.showErrorBox('CodeWatch service stopped', `Restart CodeWatch to reconnect. Details: ${logFile}`);
+      app.quit();
+    }
+  });
+  const lines = readline.createInterface({ input: child.stdout });
+  endpoint = await new Promise((resolve, reject) => {
+    const finish = (error, url) => {
+      clearTimeout(timeout); child.removeListener('error', fail); child.removeListener('exit', exited);
+      lines.close(); child.stdout.resume();
+      if (error) reject(error); else resolve(url);
+    };
+    const timeout = setTimeout(() => finish(new Error('Backend startup timed out')), 60_000);
+    const fail = (error) => finish(error);
+    const exited = () => fail(new Error('Backend exited during startup'));
+    child.once('error', fail);
+    child.once('exit', exited);
+    lines.on('line', line => {
+      try {
+        const ready = JSON.parse(line);
+        const url = new URL(ready.url);
+        if (ready.kind === 'ready' && url.protocol === 'http:' && url.hostname === '127.0.0.1' &&
+            url.port && !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash) {
+          finish(null, url.origin);
+        }
+      } catch { log(line); }
+    });
+  });
+  const response = await fetch(endpoint + '/health', { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+  if (!response.ok || (await response.json()).status !== 'ok') throw new Error('Backend health check failed');
+  backendReady = true;
+  log('Owned backend is healthy');
+}
+function bounds() {
+  const saved = settings.bounds;
+  if (saved && ['x', 'y', 'width', 'height'].every(key => Number.isFinite(saved[key])) && saved.width > 0 && saved.height > 0 &&
+      screen.getAllDisplays().some(({ workArea: a }) => saved.x < a.x + a.width && saved.y < a.y + a.height &&
+        saved.x + saved.width > a.x && saved.y + saved.height > a.y)) {
+    const a = screen.getDisplayMatching(saved).workArea;
+    const width = Math.min(Math.max(Math.round(saved.width), 380), a.width);
+    const height = Math.min(Math.max(Math.round(saved.height), 500), a.height);
+    return { x: Math.max(a.x, Math.min(Math.round(saved.x), a.x + a.width - width)),
+      y: Math.max(a.y, Math.min(Math.round(saved.y), a.y + a.height - height)), width, height };
+  }
+  const a = screen.getPrimaryDisplay().workArea;
+  return { width: Math.min(1280, a.width), height: Math.min(900, a.height) };
+}
+async function openWindow() {
+  const rendererSession = session.fromPartition('codewatch-desktop');
+  rendererSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    callback(contents === window?.webContents && localPage(contents.getURL()) && details.isMainFrame &&
+      localPage(details.requestingUrl) && permission === 'clipboard-sanitized-write');
+  });
+  rendererSession.setPermissionCheckHandler((contents, permission, requestingOrigin, details) =>
+    contents === window?.webContents && details.isMainFrame && localPage(requestingOrigin) &&
+    localPage(contents.getURL()) && permission === 'clipboard-sanitized-write');
+  await rendererSession.cookies.set({ url: endpoint, name: 'codewatch_auth', value: token, httpOnly: true, sameSite: 'strict', path: '/' });
+  rendererSession.webRequest.onBeforeRequest((details, callback) => {
+    try {
+      const url = new URL(details.url);
+      const local = (url.protocol === 'http:' || url.protocol === 'ws:') &&
+        url.host === new URL(endpoint).host && !url.username && !url.password;
+      const embedded = ['data:', 'blob:'].includes(url.protocol) && ['image', 'media', 'font'].includes(details.resourceType);
+      const exportBlob = url.protocol === 'blob:' && url.origin === endpoint;
+      callback({ cancel: !local && !embedded && !exportBlob && url.protocol !== 'devtools:' });
+    } catch { callback({ cancel: true }); }
+  });
+  rendererSession.on('will-download', (event, item, contents) => {
+    // Keep the dashboard's explicit NDJSON export; other downloads are blocked.
+    const urls = item.getURLChain();
+    const exportOnly = contents === window?.webContents && localPage(contents.getURL()) &&
+      urls.length > 0 && urls.every(url => url.startsWith(`blob:${endpoint}/`)) &&
+      item.getMimeType() === 'application/x-ndjson' && item.getFilename().endsWith('-events.ndjson');
+    if (!exportOnly) event.preventDefault();
+  });
+  const restoredBounds = bounds();
+  window = new BrowserWindow({
+    ...restoredBounds, minWidth: Math.min(380, restoredBounds.width), minHeight: Math.min(500, restoredBounds.height),
+    title: 'CodeWatch', backgroundColor: '#111413',
+    show: false, alwaysOnTop: settings.alwaysOnTop,
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), session: rendererSession,
+      contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, webviewTag: false },
+  });
+  window.setMenu(null);
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.on('will-navigate', (event, url) => { if (!localPage(url)) event.preventDefault(); });
+  window.webContents.on('will-frame-navigate', event => { if (!event.isMainFrame || !localPage(event.url)) event.preventDefault(); });
+  window.webContents.on('will-redirect', (event, url) => { if (!localPage(url)) event.preventDefault(); });
+  window.webContents.on('will-attach-webview', event => event.preventDefault());
+  window.on('close', event => {
+    if (!quitting && settings.closeToTray) { event.preventDefault(); window.hide(); }
+  });
+  window.on('resize', rememberBounds); window.on('move', rememberBounds);
+  window.on('closed', () => { window = undefined; });
+  window.webContents.on('render-process-gone', () => { log('Renderer process stopped'); app.quit(); });
+  await window.loadURL(endpoint);
+  if (!smoke || showRequested) show();
+}
+function rememberBounds() {
+  if (window && !window.isDestroyed() && !window.isMaximized() && !window.isMinimized()) { settings.bounds = window.getBounds(); persist(); }
+}
+async function stopBackend() {
+  if (stopping) return stopping;
+  if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return;
+  const ownedChild = child;
+  stopping = new Promise(resolve => {
+    const deadline = setTimeout(() => { ownedChild.kill(); resolve(); }, 10_000);
+    ownedChild.once('exit', () => { clearTimeout(deadline); resolve(); });
+    if (!ownedChild.stdin.destroyed) ownedChild.stdin.end('quit\n');
+  });
+  // The helper removes only its own discovery record. Never delete another run's file.
+  return stopping;
+}
+function trayImage() {
+  // An opaque lime C stays visible on both light and dark Windows taskbars.
+  const size = 16;
+  const pixels = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const distance = Math.hypot(x - 7.5, y - 7.5);
+      if (distance < 4 || distance > 7 || (x > 8 && y > 4 && y < 11)) continue;
+      const offset = (y * size + x) * 4;
+      // nativeImage bitmaps use BGRA pixels.
+      pixels[offset] = 77; pixels[offset + 1] = 232; pixels[offset + 2] = 192; pixels[offset + 3] = 255;
+    }
+  }
+  return nativeImage.createFromBitmap(pixels, { width: size, height: size });
+}
+if (owned) {
+  app.on('second-instance', show);
+  app.on('activate', show);
+  app.on('window-all-closed', () => { if (!settings.closeToTray) app.quit(); });
+  app.on('before-quit', event => {
+    quitting = true;
+    if (stopped) return;
+    event.preventDefault();
+    stopBackend().finally(() => { stopped = true; tray?.destroy(); app.quit(); });
+  });
+  app.whenReady().then(async () => {
+    fs.mkdirSync(userData, { recursive: true });
+    try {
+      const saved = JSON.parse(fs.readFileSync(preferencesFile, 'utf8'));
+      settings = { alwaysOnTop: saved.alwaysOnTop === true, closeToTray: saved.closeToTray === true, bounds: saved.bounds };
+    } catch { /* First launch or malformed preferences: safe defaults. */ }
+    await startBackend();
+    if (quitting) return;
+    registerIPC(); await openWindow();
+    if (quitting) return;
+    tray = new Tray(trayImage()); tray.setToolTip('CodeWatch'); tray.on('double-click', show); updateTray();
+    if (smoke) {
+      await require('./smoke.cjs')({ app, window, child, endpoint, token, discovery });
+      app.quit();
+    }
+  }).catch(error => {
+    log(error.stack || error.message);
+    if (smoke) {
+      const result = process.env.CODEWATCH_SMOKE_RESULT;
+      if (result) fs.writeFileSync(result, JSON.stringify({ ok: false, error: error.message }));
+    } else if (!quitting) dialog.showErrorBox('CodeWatch could not start', `${error.message}\n\nDetails: ${logFile}`);
+    app.quit();
+  });
+}

@@ -4,6 +4,9 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from pathlib import Path
+
+from backend.integrations.discovery import read_discovery
 
 
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
@@ -21,7 +24,9 @@ class NoRedirects(HTTPRedirectHandler):
 class CodeWatchClient:
     """Small bounded HTTP client. It never opens project files or executes commands."""
 
-    def __init__(self, server_url: str = DEFAULT_SERVER_URL, timeout: float = 15):
+    def __init__(
+        self, server_url: str = DEFAULT_SERVER_URL, timeout: float = 15, *, discovery_path: str | None = None
+    ):
         parts = urlsplit(server_url)
         if (
             parts.scheme not in {"http", "https"}
@@ -39,15 +44,26 @@ class CodeWatchClient:
         _ = parts.port
         self.server_url = server_url.rstrip("/")
         self.timeout = timeout
+        self.discovery_path = Path(discovery_path) if discovery_path else None
         self.opener = build_opener(ProxyHandler({}), NoRedirects())
 
     def request(self, method: str, path: str, payload: dict | None = None) -> dict:
+        endpoint = self.server_url
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if self.discovery_path:
+            try:
+                endpoint, token = read_discovery(self.discovery_path)
+                # Reuse strict loopback validation before sending a credential.
+                endpoint = CodeWatchClient(endpoint).server_url
+                headers["Authorization"] = f"Bearer {token}"
+            except (OSError, ValueError, KeyError) as exc:
+                raise BridgeError("Open the CodeWatch desktop app before using its reporting tools") from exc
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
         request = Request(
-            self.server_url + path,
+            endpoint + path,
             data=body,
             method=method,
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            headers=headers,
         )
         try:
             with self.opener.open(request, timeout=self.timeout) as response:

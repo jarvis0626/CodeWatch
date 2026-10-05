@@ -28,10 +28,13 @@ is unavailable, tell the user once and continue the underlying task without inve
 """
 
 
-def integration_config(server_url: str, python_executable: str, bridge_path: str) -> dict:
+def integration_config(
+    server_url: str, python_executable: str, bridge_path: str, *, discovery_path: str | None = None
+) -> dict:
     """Return portable snippets. Absolute paths allow launching from any project."""
     endpoint = server_url.rstrip("/")
-    args = [str(bridge_path), "--server-url", endpoint]
+    args = (["mcp", "--discovery", discovery_path] if discovery_path
+            else [str(bridge_path), "--server-url", endpoint])
     command = str(python_executable)
     # JSON basic strings are valid TOML basic strings, including Windows backslashes.
     codex_config = (

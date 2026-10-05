@@ -1,0 +1,47 @@
+name: Windows portable executable
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+      - name: Build portable executable
+        shell: pwsh
+        run: ./scripts/build-windows.ps1
+      - name: Backend and frontend checks
+        shell: pwsh
+        run: |
+          backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
+          backend/.venv/Scripts/python.exe -m pytest -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          backend/.venv/Scripts/python.exe -m ruff check backend
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm.cmd --prefix frontend test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Packaged smoke without developer runtimes on PATH
+        shell: pwsh
+        run: ./scripts/smoke-windows.ps1
+      - name: Frozen MCP protocol verification
+        shell: pwsh
+        run: backend/.venv/Scripts/python.exe scripts/verify-packaged-mcp.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CodeWatch-Windows-x64
+          path: dist/windows/*.exe
+          if-no-files-found: error

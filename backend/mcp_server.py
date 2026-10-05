@@ -39,8 +39,8 @@ REPORT_ANNOTATIONS = ToolAnnotations(
 )
 
 
-def create_mcp(server_url: str = DEFAULT_SERVER_URL) -> FastMCP:
-    client = CodeWatchClient(server_url)
+def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | None = None) -> FastMCP:
+    client = CodeWatchClient(server_url, discovery_path=discovery_path)
     server = FastMCP("CodeWatch", instructions=AGENT_INSTRUCTIONS, log_level="WARNING")
 
     @server.tool(annotations=REPORT_ANNOTATIONS)

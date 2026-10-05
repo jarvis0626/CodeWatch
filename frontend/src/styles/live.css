@@ -1,4 +1,11 @@
-.workspace-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:26px; }
+.workspace-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:26px; }
+.workspace-controls { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:8px; }
+.desktop-controls { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+.desktop-controls-error { display:flex; align-items:center; gap:6px; font-size:10px; }
+.desktop-controls-error .button { height:24px; font-size:10px; }
+.desktop-controls button:disabled, .native-folder-button:disabled { opacity:.55; cursor:default; }
+.native-folder-button { background:#25372c; color:#bfd8c8; border-color:#3a5543; }
+.native-folder-button:hover:not(:disabled) { background:#304737; }
 .mode-switch { display:inline-flex; padding:3px; border:1px solid #344139; background:#111713; border-radius:6px; gap:3px; }
 .mode-switch button { display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 11px; border:0; border-radius:4px; color:#91a598; background:transparent; font-size:10px; }
 .mode-switch button.active { background:#2a3d30; color:#c7eed7; box-shadow:0 1px 3px #0003; }
@@ -70,5 +77,5 @@
 .deleted .file-kind { color:#dfb3b3; background:#422b2b; }
 .session-link > span:last-child { min-width:0; overflow-wrap:anywhere; }
 @media(max-width:1000px) { .integration-layout { grid-template-columns:1fr; gap:18px; } .project-options > span { flex-basis:100%; } }
-@media(max-width:780px) { .setup-label { font-size:0; } .integration-toggle small { max-width:390px; } .project-options > input { flex:1; } .workspace-toolbar > .eyebrow { font-size:7px; } }
+@media(max-width:780px) { .setup-label { font-size:0; } .integration-toggle small { max-width:390px; } .project-options > input { flex:1; } .workspace-toolbar > .eyebrow { font-size:7px; } .project-path { flex-wrap:wrap; } .project-path input { flex-basis:calc(100% - 45px); } .project-path > .native-folder-button { margin-left:auto; } }
 @media(max-width:520px) { .workspace-toolbar { gap:7px; margin-bottom:21px; } .workspace-toolbar > .eyebrow { max-width:110px; line-height:1.8; } .mode-switch button { padding:7px 8px; font-size:9px; } .integration-content { padding:13px; } .integration-toggle { padding:13px; gap:10px; } .integration-toggle small { font-size:9px; } .integration-tabs { display:flex; } .integration-tabs button { flex:1; } .capability-grid { grid-template-columns:1fr; } .project-options { font-size:9px; gap:7px; } .project-options input { width:190px; } .graph-toolbar input { font-size:9px; } .graph-toolbar select { font-size:9px; } .graph-toolbar .button { margin-left:auto; } .graph-legend { gap:8px; flex-wrap:wrap; padding:8px 0; } .graph-footer { min-height:34px; } .live-timeline { display:block; } .live-timeline li::after { display:block; } .source-badge { margin-left:0; } }

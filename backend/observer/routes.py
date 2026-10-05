@@ -20,7 +20,9 @@ from backend.observer.requests import (
 )
 
 
-def make_router(manager: WatchManager, origins: list[str], server_url: str) -> APIRouter:
+def make_router(
+    manager: WatchManager, origins: list[str], server_url: str, *, discovery_path: str | None = None
+) -> APIRouter:
     router = APIRouter()
 
     @router.get("/api/session")
@@ -46,7 +48,8 @@ def make_router(manager: WatchManager, origins: list[str], server_url: str) -> A
         from backend.integrations.config import integration_config
 
         return integration_config(
-            server_url, sys.executable, str(Path(__file__).resolve().parents[1] / "mcp_server.py")
+            server_url, sys.executable, str(Path(__file__).resolve().parents[1] / "mcp_server.py"),
+            discovery_path=discovery_path,
         )
 
     def report(body, handler):

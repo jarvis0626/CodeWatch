@@ -37,6 +37,8 @@ def create_app(
     watch_interval: float = 0.75,
     project_path: str | None = None,
     server_url: str = "http://127.0.0.1:8000",
+    desktop_token: str | None = None,
+    discovery_path: str | None = None,
 ) -> FastAPI:
     manager = WatchManager(watch_interval)
 
@@ -53,7 +55,7 @@ def create_app(
     app.state.watch_manager = manager
     origins = os.getenv("CODEWATCH_ALLOWED_ORIGINS", ",".join(LOCAL_ORIGINS)).split(",")
     origins = [origin.strip() for origin in origins if origin.strip()]
-    origins = list(dict.fromkeys([*origins, server_url]))
+    origins = [server_url] if desktop_token else list(dict.fromkeys([*origins, server_url]))
     app.add_middleware(
         CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["Content-Type"]
     )
@@ -67,9 +69,22 @@ def create_app(
         if request.url.path.startswith("/api/") and request.method == "POST":
             if request.headers.get("content-type", "").split(";")[0] != "application/json":
                 return JSONResponse({"detail": "Use application/json"}, status_code=415)
-        return await call_next(request)
+        response = await call_next(request)
+        if desktop_token:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                f"connect-src 'self' {server_url.replace('http:', 'ws:')}; "
+                "img-src 'self' data: blob:; font-src 'self'; object-src 'none'; "
+                "base-uri 'self'; frame-ancestors 'none'"
+            )
+            response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
-    app.include_router(make_router(manager, origins, server_url))
+    app.include_router(make_router(manager, origins, server_url, discovery_path=discovery_path))
+    if desktop_token:
+        from backend.desktop_security import DesktopBoundary
+
+        app.add_middleware(DesktopBoundary, token=desktop_token, server_url=server_url)
 
     @app.get("/health")
     async def health():
