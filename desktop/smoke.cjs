@@ -43,6 +43,8 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     checks.push('Renderer API cookie authentication works');
     const watched = await request('/api/watch', { path: project, agentName: 'Packaged smoke test' });
     assert.equal(watched.watching, true);
+    await request('/api/agent/progress', { runId: watched.runId, agentName: 'Packaged smoke test', stage: 'PLANNING',
+      message: 'Inspect the fixture and its data connection', paths: ['fixture.py', 'data.py'] });
     const integration = await request('/api/integrations');
     const config = integration.mcpConfig.mcpServers.codewatch;
     assert.equal(config.args[0], 'mcp');
@@ -84,6 +86,8 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     await delay(100);
     assert.ok(await web.executeJavaScript(`document.querySelector('[data-testid="map-file-details"]').innerText.includes('fixture.py')`));
     checks.push('Readable folder overview, directed import lists and map hide/show work');
+    await request('/api/agent/progress', { runId: watched.runId, agentName: 'Packaged smoke test', stage: 'IMPLEMENTING',
+      message: 'Create a new source file and observe its save', paths: ['packaged_change.py'] });
     await web.executeJavaScript(`new Promise((opened, failed) => {
       const socket = new WebSocket(location.origin.replace('http:', 'ws:') + '/ws/live');
       window.__codewatchSmokeEvent = new Promise((resolve, reject) => {
@@ -101,7 +105,7 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     fs.writeFileSync(path.join(project, 'packaged_change.py'), 'value = 42\n');
     let rendered = false;
     for (let attempt = 0; attempt < 100; attempt++) {
-      rendered = await web.executeJavaScript(`document.body.innerText.includes('packaged_change.py')`);
+      rendered = await web.executeJavaScript(`Array.from(document.querySelectorAll('#files .file-row.created')).some(row => row.innerText.includes('packaged_change.py'))`);
       if (rendered) break;
       await delay(100);
     }
@@ -111,6 +115,8 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     const sourceTimestamp = await web.executeJavaScript('window.__codewatchSmokeEvent');
     const eventToRenderMs = Math.max(0, renderedAt - sourceTimestamp);
     checks.push('Actual saved file reaches dashboard');
+    await request('/api/agent/complete', { runId: watched.runId, agentName: 'Packaged smoke test',
+      message: 'Fixture work is complete and its file connection is visible' });
     await delay(150);
     const screenshot = await web.capturePage();
     fs.writeFileSync(path.join(path.dirname(resultPath), 'desktop-window.png'), screenshot.toPNG());
@@ -126,9 +132,40 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery 
     assert.equal(await exported, 'completed');
     assert.ok(fs.readFileSync(exportPath, 'utf8').includes('fixture.py'));
     checks.push('Existing NDJSON export works in desktop window');
+    const fullBounds = window.getBounds();
     const changed = await web.executeJavaScript(`window.codewatchDesktop.setPreferences({alwaysOnTop:true,closeToTray:true})`);
     assert.equal(changed.alwaysOnTop, true);
+    assert.equal(changed.compact, true);
     assert.ok(window.isAlwaysOnTop());
+    let companion;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      companion = await web.executeJavaScript(`({view: document.querySelector('[data-testid="app-view"]').dataset.view,
+        steps: document.querySelectorAll('.flow-step').length, done: document.querySelectorAll('.flow-step-completed').length,
+        arrows: document.querySelectorAll('[data-testid="flow-connector"]').length,
+        sidebar: !!document.querySelector('.sidebar'), map: !!document.querySelector('#architecture'),
+        overflow: document.documentElement.scrollWidth > innerWidth})`);
+      if (companion.view === 'companion' && companion.done === 3) break;
+      await delay(100);
+    }
+    assert.equal(companion.view, 'companion');
+    assert.equal(companion.steps, 3); assert.equal(companion.done, 3); assert.equal(companion.arrows, 2);
+    assert.equal(companion.sidebar, false); assert.equal(companion.map, false); assert.equal(companion.overflow, false);
+    assert.equal(window.getBounds().width, 540); assert.equal(window.getBounds().height, 720);
+    await delay(150);
+    fs.writeFileSync(path.join(path.dirname(resultPath), 'desktop-companion.png'), (await web.capturePage()).toPNG());
+    await web.executeJavaScript(`document.querySelector('.flow-step').click()`);
+    await delay(150);
+    assert.ok(await web.executeJavaScript(`document.querySelector('[data-testid="flow-step-details"]').innerText.includes('fixture.py')`));
+    await web.executeJavaScript(`Array.from(document.querySelectorAll('.desktop-controls button')).find(button=>button.innerText.includes('Open full app')).click()`);
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (await web.executeJavaScript(`document.querySelector('[data-testid="app-view"]').dataset.view === 'full'`)) break;
+      await delay(100);
+    }
+    assert.equal(await web.executeJavaScript(`document.querySelector('[data-testid="app-view"]').dataset.view`), 'full');
+    assert.ok(window.isAlwaysOnTop());
+    assert.equal(window.getBounds().width, fullBounds.width); assert.equal(window.getBounds().height, fullBounds.height);
+    assert.ok(await web.executeJavaScript(`document.querySelector('[data-testid="flow-step-details"]').innerText.includes('fixture.py')`));
+    checks.push('Pin opens the compact connected flow; step details and full-window restoration preserve selection');
     const rejected = await web.executeJavaScript(`window.codewatchDesktop.setPreferences({bad:'value'}).then(()=>false,()=>true)`);
     assert.equal(rejected, true);
     checks.push('Validated native preferences and always-on-top work');

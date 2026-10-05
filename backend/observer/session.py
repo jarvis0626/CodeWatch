@@ -17,6 +17,15 @@ def file_id(path: str) -> str:
     return f"file:{path}"
 
 
+def is_activity_event(event: dict) -> bool:
+    """Keep step evidence independently of high-volume file-index graph updates."""
+    if not event["type"].startswith("graph_"):
+        return True
+    return event["source"] == "agent" and event["type"] in {
+        "graph_edge_added", "graph_edge_removed", "graph_node_added"
+    }
+
+
 class ProjectSession:
     def __init__(self, root: Path, agent_name: str, publish):
         self.root = root
@@ -27,6 +36,7 @@ class ProjectSession:
         self.last_activity = self.connected_at
         self.watching = True
         self.history: deque[dict] = deque(maxlen=500)
+        self.activity_history: deque[dict] = deque(maxlen=2000)
         self.retained: dict[str, dict] = {}
         self.stage_history: deque[dict] = deque(maxlen=50)
         self.nodes: dict[str, dict] = {}
@@ -59,6 +69,7 @@ class ProjectSession:
             "kind": "snapshot",
             "session": self.info(),
             "events": list(self.history),
+            "activityEvents": list(self.activity_history),
             "retainedEvents": sorted(
                 [*self.retained.values(), *self.stage_history], key=lambda e: e["sequence"]
             ),
@@ -107,9 +118,13 @@ class ProjectSession:
             self.retained[f"command:{payload['commandId']}"] = event
         if event_type == "agent_stage":
             self.stage_history.append(event)
+        if event_source == "agent" and event_type in {"agent_stage", "agent_message"}:
+            self.retained["agent_report"] = event
         if not event_type.startswith("graph_"):
             self.retained["current"] = event
         self.history.append(event)
+        if is_activity_event(event):
+            self.activity_history.append(event)
         self.last_activity = event["timestamp"]
         self.publish({"kind": "event", "event": event})
         return event

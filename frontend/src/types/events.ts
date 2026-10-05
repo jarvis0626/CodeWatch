@@ -140,6 +140,9 @@ export interface StageVisit {
   sequence: number;
   source?: AgentEvent['source'];
   message?: string;
+  status?: EventStatus;
+  eventId?: string;
+  agentName?: string | null;
 }
 
 export const sessionSchema = z.object({
@@ -151,7 +154,7 @@ export const sessionSchema = z.object({
 });
 export type SessionInfo = z.infer<typeof sessionSchema>;
 export const liveFrameSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('snapshot'), session: sessionSchema.nullable(), events: z.array(agentEventSchema), retainedEvents: z.array(agentEventSchema).optional(), graph: z.object({ nodes: z.array(nodeSchema), edges: z.array(edgeSchema) }) }),
+  z.object({ kind: z.literal('snapshot'), session: sessionSchema.nullable(), events: z.array(agentEventSchema), activityEvents: z.array(agentEventSchema).optional(), retainedEvents: z.array(agentEventSchema).optional(), graph: z.object({ nodes: z.array(nodeSchema), edges: z.array(edgeSchema) }) }),
   z.object({ kind: z.literal('event'), event: agentEventSchema }),
   z.object({ kind: z.literal('session'), session: sessionSchema.nullable() }),
   z.object({ kind: z.literal('heartbeat') }),

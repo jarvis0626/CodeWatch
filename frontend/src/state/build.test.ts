@@ -21,6 +21,26 @@ function receive(state: BuildState, type: string, data: object, extras: object =
 }
 
 describe('build event consumer', () => {
+  it('restores step evidence after scan updates evict it from the visible event ring', () => {
+    const report = agentEventSchema.parse({ schemaVersion: 1, runId: 'run-1', eventId: 'report-1', sequence: 1,
+      timestamp: '2026-09-15T12:00:00Z', status: 'running', source: 'agent', type: 'agent_stage',
+      data: { stage: 'IMPLEMENTING', message: 'Add a handler' } });
+    const save = agentEventSchema.parse({ schemaVersion: 1, runId: 'run-1', eventId: 'save-2', sequence: 2,
+      timestamp: '2026-09-15T12:00:01Z', status: 'completed', source: 'filesystem', type: 'file_modified',
+      data: { path: 'main.py', nodeId: 'file:main.py', message: 'Saved handler' } });
+    const scan = agentEventSchema.parse({ schemaVersion: 1, runId: 'run-1', eventId: 'scan-650', sequence: 650,
+      timestamp: '2026-09-15T12:01:00Z', status: 'completed', source: 'filesystem', type: 'graph_node_updated',
+      data: { nodeId: 'file:main.py', state: 'completed', message: 'Indexed file' } });
+    const frame = liveFrameSchema.parse({ kind: 'snapshot', session, events: [scan], activityEvents: [report, save],
+      graph: { nodes: [], edges: [] } });
+    if (frame.kind !== 'snapshot') throw new Error('Expected snapshot');
+    const restored = buildReducer(initialState('live'), { type: 'snapshot', ...frame });
+    expect(restored.events).toEqual([scan]);
+    expect(restored.activityEvents.map((event) => event.eventId)).toEqual(['report-1', 'save-2']);
+    expect(restored.files[0].path).toBe('main.py');
+    expect(restored.stage).toBe('IMPLEMENTING');
+    expect(buildReducer(restored, { type: 'session', session: { ...session, runId: 'another-run' } }).activityEvents).toEqual([]);
+  });
   it('rejects mismatched and unsupported payloads at the boundary', () => {
     expect(() => receive(running(), 'file_created', { nodeId: 'api' })).toThrow();
     expect(() => receive(running(), 'agent_stage', { stage: 'UNKNOWN' })).toThrow();
@@ -173,5 +193,32 @@ describe('live project state', () => {
     expect(disconnected.files).toEqual(previous.files);
     expect(disconnected.session).toEqual(previous.session);
     expect(disconnected.finishedAt).toBeNull();
+  });
+
+  it('retains stage status and identity when the meaningful activity feed rolls over', () => {
+    let state = receive(live(), 'agent_stage', { stage: 'DEBUGGING', message: 'Could not connect the API' }, { source: 'agent', status: 'failed', agentName: 'First assistant' });
+    const report = state.agentReport!;
+    for (let sequence = 2; sequence <= 2002; sequence++) {
+      state = receive(state, 'file_modified', { path: 'main.py', nodeId: 'main' }, { source: 'filesystem', sequence, eventId: `save-${sequence}` });
+    }
+    expect(state.activityEvents).toHaveLength(2000);
+    expect(state.activityEvents.some(event => event.eventId === report.eventId)).toBe(false);
+    expect(state.agentReport).toBe(report);
+    expect(state.visits[0]).toMatchObject({ status: 'failed', eventId: report.eventId, agentName: 'First assistant' });
+  });
+
+  it('restores the independent latest agent report when a snapshot contains only later saves in its feed', () => {
+    const reported = receive(live(), 'agent_message', { message: 'Connecting the login form' }, { source: 'agent', agentName: 'My assistant' }).events[0];
+    const saved = receive(live(), 'file_modified', { path: 'main.py', nodeId: 'main' }, { source: 'filesystem', sequence: 2050, eventId: 'save-2050' }).events[0];
+    const state = buildReducer(initialState('live'), {
+      type: 'snapshot', session, retainedEvents: [reported, saved], activityEvents: [saved], events: [saved], graph: { nodes: [], edges: [] },
+    });
+    expect(state.agentReport).toEqual(reported);
+    expect(state.current).toEqual(saved);
+    expect(state.files[0].eventId).toBe('save-2050');
+    const reset = buildReducer(state, { type: 'session', session: { ...session, runId: 'run-2' } });
+    expect(reset.agentReport).toBeNull();
+    expect(reset.activityEvents).toEqual([]);
+    expect(reset.visits).toEqual([]);
   });
 });

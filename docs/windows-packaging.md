@@ -1,8 +1,8 @@
 # Windows executable checklist
 
-This milestone packages the existing CodeWatch dashboard as a Windows desktop app.
-The larger companion redesign (activity entities, durable replay, native vendor
-hooks and guided client configuration) remains separate work.
+CodeWatch packages its work flow and project dashboard as a Windows desktop app.
+Pinning opens a compact companion with connected steps and clickable evidence.
+Durable replay and native vendor hooks remain separate work.
 
 - [x] Inspect the checkout and preserve existing source; no AGENTS.md found.
 - [x] Baseline: 67 backend tests, 13 frontend tests, backend lint.
@@ -15,8 +15,8 @@ hooks and guided client configuration) remains separate work.
 
 ## Run the app
 
-Download the executable from the [v0.2.1 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.1),
-or build `dist/windows/CodeWatch-0.2.1-x64-portable.exe` locally. Copy it to a Windows x64
+Download the executable from the [v0.3.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.3.0),
+or build `dist/windows/CodeWatch-0.3.0-x64-portable.exe` locally. Copy it to a Windows x64
 machine and double-click it. Click **Choose folder** to start watching. Use
 **Connect your AI** for MCP configuration and reporting instructions.
 
@@ -26,8 +26,10 @@ not ordinary local file observation. The executable unpacks Electron to a tempor
 directory and copies its headless helper into `%APPDATA%/CodeWatch/bin`.
 This is one file to distribute, with runtime files created automatically at launch.
 
-The native window is resizable. **Always on top** and **Close to tray** are
-optional; both default off. Minimize/restore uses normal Windows behavior.
+The native window is resizable. **Always on top** opens the compact work flow;
+**Open full app** restores the full dashboard while keeping it pinned. Full and
+compact bounds are remembered separately. **Always on top** and **Close to tray**
+are optional; both default off. Minimize/restore uses normal Windows behavior.
 When close-to-tray is enabled, closing the window continues observation. Use
 the tray's **Show CodeWatch**, **Hide window**, or **Quit CodeWatch** actions.
 Quit closes only this app's service; it does not stop an IDE or agent.
@@ -61,6 +63,8 @@ locally tested. No build command publishes anything. The GitHub Actions workflow
 uploads an executable as a workflow artifact; it creates no public release.
 
 ## Verification
+
+### Original desktop package: v0.2.0
 
 The following commands actually ran on Windows 11 x64, build 26200, with
 Python 3.12.3, Electron 44.5.1, electron-builder 26.15.3, PyInstaller 6.22.3,
@@ -144,6 +148,42 @@ Quit the previous app instance before opening this file. The app has no automati
 updater. Source and executable are distributed through the private repository's
 [v0.2.1 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.1).
 
+## Work flow companion: v0.3.0
+
+Version 0.3.0 makes the connected work flow the main live view. Pinning switches
+the actual native window to a 540 by 720 companion. Clicking a step opens its
+report, files, saves, tests, commands and current file connections. Opening the
+full app restores its previous size and selected step while retaining the pin.
+See the [work flow guide](work-flow.md).
+
+The production build, **114 backend tests, 33 frontend unit tests, 6 native-window
+tests and 8 browser tests** passed. Regression checks include activity history
+surviving scan traffic and failed reports retaining their status after rollover.
+
+The actual portable executable passed on **2026-10-05** with only Windows System32
+on PATH. Checks covered three completed reported steps and two connecting arrows,
+compact-only rendering, actual native bounds, clickable step details, full-window
+restoration preserving selection, actual file saves, imports, export, tray behavior
+and clean quit without an owned helper remaining. A saved-file sample reached the
+DOM in **122 ms**, or **58 ms** from event timestamp; these are individual samples.
+
+The isolated report is
+`.local/packaged-smoke-3d1145def96c422e8116cb4b91a129cb/result.json`, with screenshots
+beside it. The frozen helper passed all seven MCP tools, accepted reports, DPAPI
+discovery and clean EOF shutdown; its report is
+`.local/packaged-mcp-v0.3.0-verification.json`.
+
+Artifact: `dist/windows/CodeWatch-0.3.0-x64-portable.exe`, **129,593,176 bytes**.
+Authenticode status: **NotSigned**. SHA-256:
+
+```text
+4146DC479E373498A86E6E32358ED012B14143859508C7DC95D39F8DF3A6F08E
+```
+
+The [v0.3.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.3.0)
+distributes the source and portable executable. Quit the previous app before
+opening this file; there is no automatic updater.
+
 ## Ownership and security
 
 ```mermaid
@@ -182,10 +222,11 @@ credentials redacted. Preferences and logs live under `%APPDATA%/CodeWatch`.
 | Existing cooperative MCP reporting | Packaged protocol tested with the official SDK |
 | Actual Codex/Claude/other vendor app connection | Not tested in this packaging milestone; configure using the existing guide |
 | Automatic vendor configuration, native hooks, VSIX, managed Codex sessions | Not implemented here |
-| New activity graph, durable SQLite replay, compact companion mode | Separate redesign work; existing responsive dashboard remains |
+| Connected work flow and compact pinned companion | Implemented; see the [work flow guide](work-flow.md) |
+| Durable SQLite replay | Not implemented; bounded session history remains in memory |
 | macOS/Linux or Windows ARM64 packaging | Not built or tested |
 | Installer, signing, automatic updates | No installer required; unsigned build, no updater |
-| GitHub distribution | Source and portable executable uploaded in the v0.2.0 release at the user's request; repository access is required |
+| GitHub distribution | Source and portable executable are distributed through GitHub Releases; repository access is required |
 
 The source CLI remains usable. Its default browser server retains its existing
 local API behavior; desktop authentication is enabled for the app-owned service.

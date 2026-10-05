@@ -10,10 +10,12 @@ import { FileChanges } from './components/FileChanges';
 import { TestResults } from './components/TestResults';
 import { EventLog } from './components/EventLog';
 import { useAgentEvents } from './hooks/useAgentEvents';
-import { DEFAULT_PROMPT } from './config';
+import { DEFAULT_PROMPT, PRODUCT_NAME } from './config';
 import { useLiveEvents } from './hooks/useLiveEvents';
 import { IntegrationPanel, ProjectConnection } from './components/ProjectConnection';
 import { DesktopControls } from './components/DesktopControls';
+import { ActivityFlow } from './components/ActivityFlow';
+import { useDesktopPreferences } from './hooks/useDesktopPreferences';
 
 export default function App() {
   const [mode, setMode] = useState<'live' | 'demo'>('live');
@@ -22,12 +24,21 @@ export default function App() {
   const { start, reset } = demo;
   const state = mode === 'live' ? monitor.state : demo.state;
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  const { preferences, setPreferences } = useDesktopPreferences();
+  const compact = !!preferences?.compact;
+  const [windowError, setWindowError] = useState('');
   const [fileFocus, setFileFocus] = useState<{ path: string } | null>(null);
   useEffect(() => { setFileFocus(null); }, [state.runId]);
-  function focusFile(path: string) {
+  async function focusFile(path: string) {
+    if (compact && window.codewatchDesktop) {
+      try { setPreferences(await window.codewatchDesktop.setPreferences({ compact: false })); }
+      catch { setWindowError('Could not open the full app. Please try again.'); return; }
+    }
     setFileFocus({ path });
-    document.getElementById('architecture')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }
+  useEffect(() => {
+    if (fileFocus && !compact) document.getElementById('architecture')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [fileFocus, compact]);
   const [now, setNow] = useState(Date.now());
   const live = state.connection === 'streaming' && (mode === 'demo' || !!state.session?.watching);
   const error = mode === 'live' ? monitor.requestError || state.error : state.error;
@@ -44,11 +55,15 @@ export default function App() {
     .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
   return (
     <>
-      <Topbar connection={state.connection} />
-      <div className="app-shell">
-        <Sidebar mode={mode} session={state.session} />
+      {!compact && <Topbar connection={state.connection} />}
+      <div className={`app-shell ${compact ? 'companion-shell' : ''}`} data-testid="app-view" data-view={compact ? 'companion' : 'full'}>
+        {!compact && <Sidebar mode={mode} session={state.session} />}
         <main>
-          <div className="workspace-toolbar"><span className="eyebrow">CODEWATCH / OBSERVATORY</span><div className="workspace-controls"><DesktopControls /><div className="mode-switch" role="group" aria-label="Workspace mode"><button className={mode === 'live' ? 'active' : ''} aria-pressed={mode === 'live'} onClick={() => { reset(); setMode('live'); }}><Radio size={12} />Live project</button><button className={mode === 'demo' ? 'active' : ''} aria-pressed={mode === 'demo'} onClick={() => setMode('demo')}><FlaskConical size={12} />Demo</button></div></div></div>
+          <div className={`workspace-toolbar ${compact ? 'companion-toolbar' : ''}`}><span className={compact ? 'companion-brand' : 'eyebrow'}>{compact ? PRODUCT_NAME : 'CODEWATCH / OBSERVATORY'}</span><div className="workspace-controls"><DesktopControls preferences={preferences} onPreferencesChange={setPreferences} />{!compact && <div className="mode-switch" role="group" aria-label="Workspace mode"><button className={mode === 'live' ? 'active' : ''} aria-pressed={mode === 'live'} onClick={() => { reset(); setMode('live'); }}><Radio size={12} />Live project</button><button className={mode === 'demo' ? 'active' : ''} aria-pressed={mode === 'demo'} onClick={() => setMode('demo')}><FlaskConical size={12} />Demo</button></div>}</div></div>
+          {windowError && <div className="notice error-notice" role="alert">{windowError}</div>}
+          {compact && error && <div className="notice error-notice" role="alert">{error}</div>}
+          {(mode === 'live' || compact) && <ActivityFlow key={`flow-${state.runId ?? 'idle'}`} state={state} compact={compact} onSelectFile={(path) => void focusFile(path)} />}
+          {!compact && <>
           {mode === 'live' ? <ProjectConnection session={state.session} busy={monitor.busy} watch={monitor.watch} stop={monitor.stop} /> : <BuildHeader
             prompt={prompt}
             setPrompt={setPrompt}
@@ -128,6 +143,7 @@ export default function App() {
             </span>
             <span>Built to make the invisible visible.</span>
           </footer>
+          </>}
         </main>
       </div>
     </>

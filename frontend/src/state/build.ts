@@ -21,6 +21,7 @@ export interface BuildState {
   current: AgentEvent | null;
   agentReport: AgentEvent | null;
   events: AgentEvent[];
+  activityEvents: AgentEvent[];
   nodes: GraphNode[];
   edges: GraphEdge[];
   files: FileChange[];
@@ -41,6 +42,7 @@ export const initialState = (mode: 'demo' | 'live' = 'demo'): BuildState => ({
   current: null,
   agentReport: null,
   events: [],
+  activityEvents: [],
   nodes: mode === 'live' ? [] : [
     { id: 'agent', label: 'AI Agent', kind: 'agent', state: 'planned', message: 'Ready to build' },
   ],
@@ -57,7 +59,7 @@ export type BuildAction =
   | { type: 'reset' }
   | { type: 'transport'; connection: Connection; error?: string }
   | { type: 'session'; session: SessionInfo | null }
-  | { type: 'snapshot'; session: SessionInfo | null; events: AgentEvent[]; retainedEvents?: AgentEvent[]; graph: { nodes: GraphNode[]; edges: GraphEdge[] } }
+  | { type: 'snapshot'; session: SessionInfo | null; events: AgentEvent[]; activityEvents?: AgentEvent[]; retainedEvents?: AgentEvent[]; graph: { nodes: GraphNode[]; edges: GraphEdge[] } }
   | { type: 'start'; now: number }
   | { type: 'event'; event: AgentEvent }
   | { type: 'error'; message: string };
@@ -71,7 +73,7 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
   }
   if (action.type === 'snapshot') {
     let next = { ...initialState('live'), connection: 'streaming' as Connection, session: action.session, runId: action.session?.runId ?? null, startedAt: action.session ? Date.parse(action.session.connectedAt) : null };
-    const events = [...new Map([...(action.retainedEvents ?? []), ...action.events].map((event) => [event.eventId, event])).values()].sort((a, b) => a.sequence - b.sequence);
+    const events = [...new Map([...(action.retainedEvents ?? []), ...(action.activityEvents ?? []), ...action.events].map((event) => [event.eventId, event])).values()].sort((a, b) => a.sequence - b.sequence);
     for (const event of events) next = buildReducer(next, { type: 'event', event });
     return { ...next, events: action.events, nodes: action.graph.nodes, edges: action.graph.edges };
   }
@@ -95,6 +97,8 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
     current: event.type.startsWith('graph_') ? state.current : event,
     agentReport: event.source === 'agent' && (event.type === 'agent_stage' || event.type === 'agent_message') ? event : state.agentReport,
     events: [...state.events, event].slice(-500),
+    activityEvents: !event.type.startsWith('graph_') || (event.source === 'agent' && ['graph_edge_added', 'graph_edge_removed', 'graph_node_added'].includes(event.type))
+      ? [...state.activityEvents, event].slice(-2000) : state.activityEvents,
     session: state.session ? { ...state.session, eventCount: Math.max(state.session.eventCount, event.sequence), lastActivityAt: event.timestamp } : null,
   };
   switch (event.type) {
@@ -102,7 +106,7 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
       next.stage = event.data.stage;
       next.visits = [
         ...state.visits,
-        { stage: event.data.stage, timestamp: event.timestamp, sequence: event.sequence, source: event.source, message: event.data.message },
+        { stage: event.data.stage, timestamp: event.timestamp, sequence: event.sequence, source: event.source, message: event.data.message, status: event.status, eventId: event.eventId, agentName: event.agentName },
       ].slice(state.mode === 'live' ? -50 : 0);
       break;
     case 'graph_node_added':

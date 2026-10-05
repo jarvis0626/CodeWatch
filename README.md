@@ -2,19 +2,19 @@
 
 **See what your coding agent is building, and how the project connects.**
 
-CodeWatch runs beside your existing editor or AI tool. On Windows, open the portable desktop executable and choose your project folder. A readable folder map shows where saved changes fit; select a file to see the code it uses and the files that use it. Connect its MCP server to an agent to see reported tasks, affected files, relationships, commands, and test outcomes alongside the map.
+CodeWatch runs beside your existing editor or AI tool. On Windows, open the portable desktop executable and choose your project folder. Connect its MCP server to follow the agent's work as a flow of connected steps, with the latest report and reported working file in view. Pin the app to keep just this flow above your editor. Select a step to inspect its files, changes, tests, commands and known file connections; open the full app for the project map and event log.
 
-![CodeWatch watching a real project](docs/codewatch-live.png)
+![CodeWatch connected work flow](docs/codewatch-work-flow.png)
 
 ## How it works, in plain language
 
-You keep using your usual coding AI and editor. CodeWatch opens in its own desktop window and turns the work into a live map. The source CLI also supports the browser dashboard.
+You keep using your usual coding AI and editor. CodeWatch opens in its own desktop window and follows reported work and real saved files. The source CLI also supports the browser dashboard.
 
 1. **Choose your project folder.** CodeWatch groups supported source files into your actual folders. Saving, creating, or deleting a file updates the map and recent changes.
 2. **Connect your AI.** Add the configuration from **Connect your AI** to an MCP-capable coding tool. MCP (Model Context Protocol) is the interface that lets an agent call CodeWatch's reporting tools.
-3. **Give the AI a task.** With the supplied reporting instructions, the agent describes its current step and names the files involved. The activity panel shows that report, and affected files are highlighted in the folder list.
-4. **Explore the connections.** Open a folder or search for a file. Selecting it shows **Uses code from** and **Used by** lists, with agent-reported relationships explained separately. An optional small connection diagram and **Hide map** control let you choose how much detail to see. [Project map guide](docs/project-map.md).
-5. **Follow the outcome.** The activity timeline, file list, command output, and test results show what happened. File watching continues after the agent finishes.
+3. **Follow the work flow.** With the supplied reporting instructions, the agent describes its steps and names the files involved. Connected cards show their order and reported status. Select a card to see its file changes, results and known file connections. [Work flow guide](docs/work-flow.md).
+4. **Pin it beside your editor.** **Always on top** opens the compact companion, showing only the flow, latest report and working file. **Open full app** restores the complete dashboard while keeping it pinned.
+5. **Explore the project.** Open a folder or search for a file. Selecting it shows **Uses code from** and **Used by** lists, with agent-reported relationships explained separately. The full app includes the event log, command output and test results. File watching continues after the agent finishes. [Project map guide](docs/project-map.md).
 
 ### Example: asking an AI to build login
 
@@ -52,17 +52,17 @@ The dashboard labels these sources. An indexed or settled file does not mean its
 
 ## Windows desktop: no installation
 
-**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.2.1/CodeWatch-0.2.1-x64-portable.exe)** from the [v0.2.1 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.2.1). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
+**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.3.0/CodeWatch-0.3.0-x64-portable.exe)** from the [v0.3.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.3.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
 
-If you build locally, the same file is at `dist/windows/CodeWatch-0.2.1-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
+If you build locally, the same file is at `dist/windows/CodeWatch-0.3.0-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
 
-The app opens a resizable window, supports **Always on top**, and remembers its position. Closing it quits by default. Enable **Close to tray** to keep observing after closing the window; restore it from the tray, or choose **Quit CodeWatch** to stop its backend. CodeWatch only stops its own service.
+The app opens a resizable window. **Always on top** switches to the compact work flow companion; **Open full app** restores the complete dashboard with the pin retained, and **Unpin** restores the full app without the pin. Both window sizes and positions are remembered. Closing it quits by default. Enable **Close to tray** to keep observing after closing the window; restore it from the tray, or choose **Quit CodeWatch** to stop its backend. CodeWatch only stops its own service.
 
 Use **Connect your AI** for the existing cooperative MCP setup. The snippets launch a bundled helper, so MCP clients also need no installed Python. Client configuration and reporting instructions still require the setup described below; packaging does not add native vendor interception.
 
 Copy the MCP configuration from **your own app**. Its paths use your Windows user-data directory; another person's `C:/Users/...` paths will not work on your machine. The helper filename includes a hash of the bundled executable: the same helper build has the same suffix, and a different build can have a different suffix. `desktop-connection.json` keeps the same filename inside each person's CodeWatch data directory. After upgrading, use the configuration shown by the app if its helper path changed.
 
-To check the connection, ask your coding agent to use CodeWatch to report a short progress message and modify a source file. The report should appear in **Current activity**, and the save should appear in **File changes**. A saved file alone verifies the watcher; an accepted agent report also verifies the MCP connection.
+To check the connection, ask your coding agent to use CodeWatch to report a short progress message and modify a source file. The report should appear in the **Work flow**, and the save should appear in its step details and **File changes**. A saved file alone verifies the watcher; an accepted agent report also verifies the MCP connection.
 
 The portable executable extracts its bundled runtime automatically. Preferences, logs and a stable MCP helper live under `%APPDATA%/CodeWatch`; the discovery credential is encrypted with Windows DPAPI. Moving the portable executable does not break your MCP configuration. Sessions/history remain in memory in this version.
 
@@ -195,6 +195,8 @@ For a custom port: `serve --port 8010`, and put `--server-url http://127.0.0.1:8
 
 ## What the real dashboard shows
 
+- A connected work flow with selectable steps, latest report and agent-reported working file. Its arrows show report order; step details show actual known file connections.
+- A compact pinned companion that keeps the flow visible beside your editor, with full-app controls for the complete dashboard.
 - A project map of actual folders, recent changes, file search, and readable **Uses code from** / **Used by** lists. A small diagram is optional, and the map can be collapsed.
 - Solid import relationships and separately identified agent-reported relationships.
 - The current reported task and active files, without inventing a stage from filesystem activity.
@@ -264,7 +266,7 @@ Sources are `filesystem`, `agent`, `command`, `system`, and `simulator`. A sourc
 | `WS /ws/live` | Shared session snapshots, events and heartbeats |
 | `WS /ws/build` | Isolated simulated demo |
 
-The live stream sends an initial `snapshot` containing session metadata, the last 500 events, retained outcomes/stage visits, and canonical nodes/edges; then `event` and `session` frames. Heartbeats arrive during quiet periods. Slow subscribers receive a fresh snapshot. The event log is a bounded recent window, not a durable audit log.
+The live stream sends an initial `snapshot` containing session metadata, the last 500 events, up to 2,000 activity events for step evidence, retained outcomes/stage visits, and canonical nodes/edges; then `event` and `session` frames. Heartbeats arrive during quiet periods. Slow subscribers receive a fresh snapshot. History remains bounded and in memory.
 
 For direct local scripts, report HTTP JSON using the same routes. Producers must use current run IDs and project-relative paths; traversal, linked paths and common secret paths are rejected. Command outcomes must follow a started invocation, and older test attempts are rejected.
 
@@ -276,13 +278,14 @@ The original 36-second Todo simulation remains in the **Demo** tab. It emits 73 
 
 ## Development and verification
 
-The current implementation passed **111 backend tests, 13 frontend unit tests, and 6 browser tests**, plus lint and a production build. Desktop checks and frozen MCP verification are recorded in [Windows packaging](docs/windows-packaging.md). These checks cover CodeWatch itself; they do not mean every vendor's IDE was manually tested.
+The current implementation passed **114 backend tests, 33 frontend unit tests, 6 native-window tests, and 8 browser tests**, plus lint and a production build. Desktop checks and frozen MCP verification are recorded in [Windows packaging](docs/windows-packaging.md). These checks cover CodeWatch itself; they do not mean every vendor's IDE was manually tested.
 
 ```powershell
 .\backend\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
 .\backend\.venv\Scripts\python.exe -m pytest -q
 .\backend\.venv\Scripts\python.exe -m ruff check backend
 npm.cmd --prefix frontend test
+node --test desktop/main.test.cjs
 npm.cmd --prefix frontend run build
 npm.cmd --prefix frontend run test:e2e
 ```

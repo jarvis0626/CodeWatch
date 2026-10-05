@@ -17,7 +17,8 @@ const owned = app.requestSingleInstanceLock();
 if (!owned) app.quit();
 let window, tray, child, endpoint, quitting = false, stopped = false, stopping;
 let backendReady = false, showRequested = false;
-let settings = { alwaysOnTop: false, closeToTray: false };
+let settings = { alwaysOnTop: false, closeToTray: false, compact: false };
+let changingLayout = false;
 let token;
 const userData = app.getPath('userData');
 const discovery = path.join(userData, 'desktop-connection.json');
@@ -43,7 +44,40 @@ function persist() {
   } catch (error) { log(`Could not save preferences: ${error.message}`); }
 }
 function preferences() {
-  return { alwaysOnTop: settings.alwaysOnTop, closeToTray: settings.closeToTray };
+  return { alwaysOnTop: settings.alwaysOnTop, closeToTray: settings.closeToTray, compact: settings.compact };
+}
+function notifyPreferences() {
+  if (window && !window.isDestroyed()) window.webContents.send('codewatch:preferences-changed', preferences());
+}
+function setPreferences(patch) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
+      Object.keys(patch).some(key => !['alwaysOnTop', 'closeToTray', 'compact'].includes(key) || typeof patch[key] !== 'boolean')) {
+    throw new Error('Invalid preferences');
+  }
+  // Pinning opens the companion. Opening the full app can leave it pinned.
+  const targetCompact = Object.hasOwn(patch, 'compact') ? patch.compact :
+    Object.hasOwn(patch, 'alwaysOnTop') && patch.alwaysOnTop !== settings.alwaysOnTop ? patch.alwaysOnTop : settings.compact;
+  const layoutChanged = settings.compact !== targetCompact;
+  if (layoutChanged && window && !window.isDestroyed()) {
+    rememberBounds();
+    if (!settings.compact) settings.fullMaximized = window.isMaximized();
+  }
+  Object.assign(settings, patch, { compact: targetCompact });
+  if (window && !window.isDestroyed()) {
+    window.setAlwaysOnTop(settings.alwaysOnTop);
+    if (layoutChanged) {
+      changingLayout = true;
+      try {
+        if (window.isMaximized()) window.unmaximize();
+        const target = bounds(settings.compact, window.getBounds());
+        window.setMinimumSize(Math.min(settings.compact ? 440 : 380, target.width), Math.min(500, target.height));
+        window.setBounds(target);
+        if (!settings.compact && settings.fullMaximized) window.maximize();
+      } finally { changingLayout = false; }
+    }
+  }
+  persist(); updateTray(); notifyPreferences();
+  return preferences();
 }
 function localPage(url) {
   try {
@@ -66,14 +100,7 @@ function registerIPC() {
   ipcMain.handle('codewatch:get-preferences', (event) => { trusted(event); return preferences(); });
   ipcMain.handle('codewatch:set-preferences', (event, patch) => {
     trusted(event);
-    if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
-        Object.keys(patch).some(key => !['alwaysOnTop', 'closeToTray'].includes(key) || typeof patch[key] !== 'boolean')) {
-      throw new Error('Invalid preferences');
-    }
-    Object.assign(settings, patch);
-    window.setAlwaysOnTop(settings.alwaysOnTop);
-    persist(); updateTray();
-    return preferences();
+    return setPreferences(patch);
   });
 }
 function show() {
@@ -88,8 +115,11 @@ function updateTray() {
   if (!tray) return;
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Show CodeWatch', click: show },
+    { label: settings.compact ? 'Open full app' : 'Show activity companion', click: () => {
+      setPreferences({ compact: !settings.compact }); show();
+    } },
     { label: 'Always on top', type: 'checkbox', checked: settings.alwaysOnTop, click: () => {
-      settings.alwaysOnTop = !settings.alwaysOnTop; window?.setAlwaysOnTop(settings.alwaysOnTop); persist(); updateTray();
+      setPreferences({ alwaysOnTop: !settings.alwaysOnTop });
     } },
     { label: 'Hide window (continue watching)', click: () => window?.hide() },
     { type: 'separator' },
@@ -156,19 +186,22 @@ async function startBackend() {
   backendReady = true;
   log('Owned backend is healthy');
 }
-function bounds() {
-  const saved = settings.bounds;
+function bounds(compact = settings.compact, previous) {
+  const saved = compact ? settings.compactBounds : settings.bounds;
   if (saved && ['x', 'y', 'width', 'height'].every(key => Number.isFinite(saved[key])) && saved.width > 0 && saved.height > 0 &&
       screen.getAllDisplays().some(({ workArea: a }) => saved.x < a.x + a.width && saved.y < a.y + a.height &&
         saved.x + saved.width > a.x && saved.y + saved.height > a.y)) {
     const a = screen.getDisplayMatching(saved).workArea;
-    const width = Math.min(Math.max(Math.round(saved.width), 380), a.width);
+    const width = Math.min(Math.max(Math.round(saved.width), compact ? 440 : 380), a.width);
     const height = Math.min(Math.max(Math.round(saved.height), 500), a.height);
     return { x: Math.max(a.x, Math.min(Math.round(saved.x), a.x + a.width - width)),
       y: Math.max(a.y, Math.min(Math.round(saved.y), a.y + a.height - height)), width, height };
   }
-  const a = screen.getPrimaryDisplay().workArea;
-  return { width: Math.min(1280, a.width), height: Math.min(900, a.height) };
+  const a = previous ? screen.getDisplayMatching(previous).workArea : screen.getPrimaryDisplay().workArea;
+  const width = Math.min(compact ? 540 : 1280, a.width);
+  const height = Math.min(compact ? 720 : 900, a.height);
+  return { x: a.x + Math.max(0, compact ? a.width - width - 20 : Math.round((a.width - width) / 2)),
+    y: a.y + Math.max(0, Math.min(24, a.height - height)), width, height };
 }
 async function openWindow() {
   const rendererSession = session.fromPartition('codewatch-desktop');
@@ -200,12 +233,13 @@ async function openWindow() {
   });
   const restoredBounds = bounds();
   window = new BrowserWindow({
-    ...restoredBounds, minWidth: Math.min(380, restoredBounds.width), minHeight: Math.min(500, restoredBounds.height),
+    ...restoredBounds, minWidth: Math.min(settings.compact ? 440 : 380, restoredBounds.width), minHeight: Math.min(500, restoredBounds.height),
     title: 'CodeWatch', backgroundColor: '#111413',
     show: false, alwaysOnTop: settings.alwaysOnTop,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), session: rendererSession,
       contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, webviewTag: false },
   });
+  if (!settings.compact && settings.fullMaximized) window.maximize();
   window.setMenu(null);
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => { if (!localPage(url)) event.preventDefault(); });
@@ -216,13 +250,22 @@ async function openWindow() {
     if (!quitting && settings.closeToTray) { event.preventDefault(); window.hide(); }
   });
   window.on('resize', rememberBounds); window.on('move', rememberBounds);
+  window.on('maximize', rememberBounds); window.on('unmaximize', rememberBounds);
   window.on('closed', () => { window = undefined; });
   window.webContents.on('render-process-gone', () => { log('Renderer process stopped'); app.quit(); });
   await window.loadURL(endpoint);
   if (!smoke || showRequested) show();
 }
 function rememberBounds() {
-  if (window && !window.isDestroyed() && !window.isMaximized() && !window.isMinimized()) { settings.bounds = window.getBounds(); persist(); }
+  if (!changingLayout && window && !window.isDestroyed() && !window.isMinimized()) {
+    if (settings.compact) {
+      if (!window.isMaximized()) settings.compactBounds = window.getBounds();
+    } else {
+      settings.bounds = window.isMaximized() ? window.getNormalBounds() : window.getBounds();
+      settings.fullMaximized = window.isMaximized();
+    }
+    persist();
+  }
 }
 async function stopBackend() {
   if (stopping) return stopping;
@@ -265,7 +308,9 @@ if (owned) {
     fs.mkdirSync(userData, { recursive: true });
     try {
       const saved = JSON.parse(fs.readFileSync(preferencesFile, 'utf8'));
-      settings = { alwaysOnTop: saved.alwaysOnTop === true, closeToTray: saved.closeToTray === true, bounds: saved.bounds };
+      settings = { alwaysOnTop: saved.alwaysOnTop === true, closeToTray: saved.closeToTray === true,
+        compact: typeof saved.compact === 'boolean' ? saved.compact : saved.alwaysOnTop === true,
+        bounds: saved.bounds, compactBounds: saved.compactBounds, fullMaximized: saved.fullMaximized === true };
     } catch { /* First launch or malformed preferences: safe defaults. */ }
     await startBackend();
     if (quitting) return;

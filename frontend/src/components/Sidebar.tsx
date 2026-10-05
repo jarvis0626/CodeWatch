@@ -4,6 +4,7 @@ import {
   Boxes,
   FileCode2,
   FlaskConical,
+  GitBranch,
   LayoutDashboard,
   Radio,
   Terminal,
@@ -14,6 +15,7 @@ import { PRODUCT_NAME, PRODUCT_VERSION } from '../config';
 
 const links = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'work-flow', label: 'Work flow', icon: GitBranch },
   { id: 'architecture', label: 'Architecture', icon: Boxes },
   { id: 'files', label: 'File changes', icon: FileCode2 },
   { id: 'tests', label: 'Test results', icon: FlaskConical },
@@ -26,7 +28,7 @@ export function Sidebar({ mode, session }: { mode: 'live' | 'demo'; session: Ses
     <aside className="sidebar">
       <div className="sidebar-caption">WORKSPACE</div>
       <nav aria-label="Dashboard sections">
-        {links.map(({ id, label, icon: Icon }) => (
+        {links.filter((link) => link.id !== 'work-flow' || mode === 'live').map(({ id, label, icon: Icon }) => (
           <a
             key={id}
             href={`#${id}`}
