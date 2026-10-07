@@ -25,6 +25,16 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
   const validClsid = /^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i;
   const same = (a, b) => typeof a === 'string' && typeof b === 'string' &&
     a.replaceAll('/', '\\').toLowerCase() === b.replaceAll('/', '\\').toLowerCase();
+  // The portable launcher can use an 8.3 path (RUNNER~1), while Shell links
+  // return its long form (runneradmin). Compare resolved files, not spellings.
+  function sameExecutable(a, b) {
+    if (same(a, b)) return true;
+    if (typeof a !== 'string' || typeof b !== 'string') return false;
+    try {
+      const resolve = disk.realpathSync.native || disk.realpathSync;
+      return same(resolve(a), resolve(b));
+    } catch { return false; }
+  }
   const identityMatches = () => same(app.toastActivatorCLSID, toastActivatorClsid);
   const programs = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
   const smokeId = crypto.createHash('sha256').update(userData).digest('hex').slice(0, 16);
@@ -45,7 +55,7 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
     try {
       const value = shell.readShortcutLink(file);
       return value.appUserModelId === applicationId && same(value.toastActivatorClsid, toastActivatorClsid) &&
-        (same(value.target, executable) || same(value.target, innerExecutable));
+        (sameExecutable(value.target, executable) || sameExecutable(value.target, innerExecutable));
     } catch { return false; }
   }
   function writeShortcut(file) {
@@ -100,7 +110,7 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
       if (closed) return;
       if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
       server = await readServer();
-      if (same(serverTarget(server), innerExecutable) || state.repaired) break;
+      if (sameExecutable(serverTarget(server), innerExecutable) || state.repaired) break;
       if (attempt < 20) await sleep(100);
     }
     if (closed) return;
@@ -152,7 +162,7 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
       }
       // Never remove a production or another process's registry registration.
       const server = await readServer();
-      if (identityMatches() && (same(serverTarget(server), executable) || same(serverTarget(server), innerExecutable))) {
+      if (identityMatches() && (sameExecutable(serverTarget(server), executable) || sameExecutable(serverTarget(server), innerExecutable))) {
         try { await registry(['delete', registryKey, '/f']); }
         catch { log('A disposable notification activation record could not be cleaned up.'); }
       }

@@ -4,7 +4,7 @@
 
 CodeWatch runs beside your editor and turns the agent’s reports into a connected work flow. See the current task, inspect the files involved, and check progress from your phone while the work continues on your computer.
 
-[Download for Windows](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.5.0) · [Connect your agent](docs/integrations.md) · [Phone setup](docs/phone-view.md) · [Run from source](docs/technical-reference.md#start-locally)
+[Download for Windows](https://github.com/jarvis0626/CodeWatch/releases/latest) · [Connect your agent](docs/integrations.md) · [Phone setup](docs/phone-view.md) · [Run from source](docs/technical-reference.md#start-locally)
 
 ## See the work take shape
 
@@ -58,7 +58,7 @@ Connect MCP once, then select **Light** or **Detailed** in **Connect your AI**. 
 
 ### Windows desktop
 
-1. Download the [v0.5.0 portable executable](https://github.com/jarvis0626/CodeWatch/releases/download/v0.5.0/CodeWatch-0.5.0-x64-portable.exe).
+1. Download the [latest Windows portable executable](https://github.com/jarvis0626/CodeWatch/releases/latest).
 2. Open it and choose your project folder.
 3. Open **Connect your AI**, add the generated configuration to your MCP-capable coding tool, then start a task with CodeWatch enabled.
 4. Start your task. Pin the companion or enable phone viewing as needed.

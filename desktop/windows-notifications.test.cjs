@@ -50,7 +50,7 @@ function fixture(smoke = false, overrideClsid) {
     icon: sourceIcon, applicationId, toastActivatorClsid: clsid, smoke, log: message => logs.push(message) },
   { fs, runRegistry, platform: 'win32', sleep: async () => { await sleepCallback?.(); } });
   const serverKey = `HKCU\\Software\\Classes\\CLSID\\${clsid}\\LocalServer32`;
-  return { registration, app, files, calls, registryWrites, logs, values, shell, automatic, serverKey,
+  return { registration, app, fs, files, calls, registryWrites, logs, values, shell, automatic, serverKey,
     setFailure: value => { failWrite = value; }, setFailureAt: value => { failureAtCall = value; },
     setSleep: callback => { sleepCallback = callback; } };
 }
@@ -206,4 +206,45 @@ test('a smoke configuration cannot write or delete the fixed production CLSID', 
   assert.equal(f.calls.length, 0);
   assert.equal(f.registryWrites.length, 0);
   assert.equal(f.values.get(f.serverKey), executable);
+});
+
+
+test('Windows short and long paths identify the same extracted EXE for repair and cleanup', async () => {
+  const f = fixture(true);
+  f.registration.register();
+  const shortInner = inner.replace('extracted app', 'EXTRAC~1');
+  const native = value => value === shortInner ? inner : value;
+  f.fs.realpathSync = Object.assign(() => { throw new Error('Use native path resolution'); }, { native });
+  const link = f.shell.readShortcutLink(f.automatic);
+  f.shell.writeShortcutLink(f.automatic, 'create', { ...link, target: shortInner });
+  f.values.set(f.serverKey, shortInner);
+  let sleeps = 0;
+  f.setSleep(() => { sleeps++; });
+  await f.registration.repair();
+  assert.equal(sleeps, 0);
+  assert.equal(f.registration.state.repaired, true);
+  assert.equal(f.values.get(f.serverKey), `"${executable}"`);
+  assert.equal(f.shell.readShortcutLink(f.automatic).target, executable);
+  // Cleanup must also recognize an equivalent path restored by Electron.
+  f.values.set(f.serverKey, shortInner);
+  await f.registration.close();
+  assert.equal(f.files.has(f.automatic), false);
+  assert.equal(f.values.has(f.serverKey), false);
+});
+
+test('path resolution never grants ownership to a different executable with matching identity', async () => {
+  const f = fixture(true);
+  f.registration.register();
+  const other = path.resolve('.local/other/CodeWatch.exe');
+  f.fs.realpathSync = value => value;
+  const link = f.shell.readShortcutLink(f.automatic);
+  f.shell.writeShortcutLink(f.automatic, 'create', { ...link, target: other });
+  f.values.set(f.serverKey, other);
+  await f.registration.repair();
+  assert.equal(f.registration.state.repaired, false);
+  assert.equal(f.registration.state.reason, 'Shortcut ownership check failed');
+  await f.registration.close();
+  assert.equal(f.shell.readShortcutLink(f.automatic).target, other);
+  assert.equal(f.values.get(f.serverKey), other);
+  assert.equal(f.registryWrites.length, 0);
 });
