@@ -104,7 +104,7 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
       if (attempt < 20) await sleep(100);
     }
     if (closed) return;
-      if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
+    if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
     if (!ownedShortcut(shortcutPath) || (smoke && !ownedShortcut(automaticPath))) {
       state.reason = 'Shortcut ownership check failed';
       for (const [label, file] of [['shortcut', shortcutPath], ['automatic', automaticPath]]) {
@@ -120,10 +120,10 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
     const command = `"${executable}"${activation ? ` ${activation}` : ''}`;
     await registry(['add', registryKey, '/ve', '/t', 'REG_SZ', '/d', 'CodeWatch Notification Activator', '/f']);
     if (closed) return;
-      if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
+    if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
     await registry(['add', registryKey, '/v', 'CustomActivator', '/t', 'REG_DWORD', '/d', '1', '/f']);
     if (closed) return;
-      if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
+    if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
     await registry(['add', serverKey, '/ve', '/t', 'REG_SZ', '/d', command, '/f']);
     state.repaired = true;
     state.reason = null;

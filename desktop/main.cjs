@@ -441,7 +441,10 @@ if (owned) {
     log(error.stack || error.message);
     if (smoke) {
       const result = process.env.CODEWATCH_SMOKE_RESULT;
-      if (result) fs.writeFileSync(result, JSON.stringify({ ok: false, error: error.message }));
+      // Keep the detailed smoke report; startup failures do not have one yet.
+      if (result && !fs.existsSync(result)) fs.writeFileSync(result, JSON.stringify({
+        ok: false, error: error.message, notificationRegistration: notificationRegistration?.state,
+      }));
     } else if (!quitting) dialog.showErrorBox('CodeWatch could not start', `${error.message}\n\nDetails: ${logFile}`);
     app.quit();
   });
