@@ -334,3 +334,40 @@ def test_mcp_tools_match_actual_backend_contract(monkeypatch, tmp_path):
                 assert backend.get("/api/session").json()["session"]["watching"] is True
 
         asyncio.run(asyncio.wait_for(exercise(), timeout=15))
+
+
+@pytest.mark.parametrize('mode', ['light', 'detailed'])
+def test_reporting_mode_round_trips_config_and_mcp(monkeypatch, mode):
+    from backend.integrations.config import reporting_instructions
+
+    config = integration_config('http://127.0.0.1:8000', 'helper.exe', 'bridge.py',
+                                discovery_path='C:/User Data/connection.json', reporting_mode=mode)
+    json_server = config['mcpConfig']['mcpServers']['codewatch']
+    toml_server = tomllib.loads(config['codexConfig'])['mcp_servers']['codewatch']
+    assert json_server['env'] == toml_server['env'] == {'CODEWATCH_REPORTING_MODE': mode}
+    assert json_server['args'] == toml_server['args'] == ['mcp', '--discovery', 'C:/User Data/connection.json']
+    assert config['instructions'] == reporting_instructions(mode)
+    monkeypatch.setenv('CODEWATCH_REPORTING_MODE', mode)
+
+    async def check():
+        async with create_connected_server_and_client_session(create_mcp()) as client:
+            initialized = await client.initialize()
+            assert initialized.instructions == config['instructions']
+            resource = await client.read_resource('codewatch://instructions')
+            assert resource.contents[0].text == config['instructions']
+            prompt = await client.get_prompt('watch_my_work')
+            assert prompt.messages[0].content.text == config['instructions']
+            assert len((await client.list_tools()).tools) == 7
+
+    asyncio.run(check())
+
+
+def test_reporting_mode_api_defaults_and_validation():
+    with TestClient(create_app(watch_interval=60)) as client:
+        default = client.get('/api/integrations').json()
+        assert default['reportingMode'] == 'light'
+        assert 'Always call codewatch_complete' in default['instructions']
+        detailed = client.get('/api/integrations?reporting_mode=detailed').json()
+        assert detailed['reportingMode'] == 'detailed'
+        assert 'Report each command as running' in detailed['instructions']
+        assert client.get('/api/integrations?reporting_mode=invalid').status_code == 422

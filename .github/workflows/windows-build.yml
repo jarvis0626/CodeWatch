@@ -36,6 +36,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs desktop/completion-notifications.test.cjs desktop/windows-notifications.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Reporting mode browser check
+        shell: pwsh
+        run: npm.cmd --prefix frontend run test:e2e -- reporting-mode.spec.ts
       - name: Packaged smoke without developer runtimes on PATH
         shell: pwsh
         run: ./scripts/smoke-windows.ps1

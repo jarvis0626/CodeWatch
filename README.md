@@ -169,6 +169,12 @@ Local MCP clients can launch the bridge through stdio. Agent activity appears wh
 
 ChatGPT in a browser requires an additional supported connection, such as a configured Secure MCP Tunnel; it cannot launch this local stdio process directly. That remote setup is not provisioned by this project. See the integration guide's current official references and limitations.
 
+Light reporting is now the default: major milestones, important blockers, and final
+completion. Choose **Detailed** in **Connect your AI** for command/test and finer
+step reports. Copy the selected configuration and instructions, then reload your
+agent's MCP connection. File watching and completion alerts work in both modes.
+[Reporting mode setup](docs/integrations.md#light-and-detailed-reporting).
+
 ### MCP tools
 
 - `codewatch_watch_project`: attach a local project and return its session/run ID.

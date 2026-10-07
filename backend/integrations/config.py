@@ -1,9 +1,10 @@
 """Generate copyable client configuration without editing an IDE's settings."""
 
 import json
+from typing import Literal
 
 
-AGENT_INSTRUCTIONS = """Use CodeWatch to make your work visible in the user's live project map.
+DETAILED_INSTRUCTIONS = """Use CodeWatch to make your work visible in the user's live project map.
 Call codewatch_watch_project with the absolute project path and your agent name before starting.
 Keep the returned session.runId and pass it as run_id to every report for this task.
 Before each meaningful step, call codewatch_progress with a short, plain-language action,
@@ -28,10 +29,39 @@ is unavailable, tell the user once and continue the underlying task without inve
 """
 
 
+ReportingMode = Literal["light", "detailed"]
+LIGHT_INSTRUCTIONS = """Use CodeWatch in Light reporting mode.
+Call codewatch_watch_project once before starting; keep session.runId as run_id for reports.
+Use codewatch_progress once per meaningful task/component or major phase, with a short
+plain-language summary (aim for 1-2 sentences) and only the relevant relative paths.
+Report important failures or blockers; avoid narrating every edit, read, command, or retry.
+Do not routinely call codewatch_command, codewatch_test, or codewatch_relationship.
+Reporting tools do not execute anything. Do not copy terminal output into reports. File changes and supported imports are automatic.
+Always call codewatch_complete when the requested task is actually finished, with a concise
+outcome and limitations, so completion notifications can fire. Do not mark blocked work complete.
+For a new task in the same session, send a progress report before completion to rearm alerts.
+Stages: PLANNING, EXPLORING, IMPLEMENTING, RUNNING, TESTING, DEBUGGING, VALIDATING, COMPLETE.
+Report only observed outcomes; never invent commands, test results, or relationships.
+If run_id is rejected, use codewatch_status; never switch to another project automatically.
+Never send secrets, credentials, full environment variables, or hidden reasoning.
+If reporting is unavailable, tell the user once and continue the underlying task.
+"""
+# Backwards-compatible import; new connections default to Light.
+AGENT_INSTRUCTIONS = LIGHT_INSTRUCTIONS
+
+
+def reporting_instructions(mode: ReportingMode = "light") -> str:
+    if mode not in {"light", "detailed"}:
+        raise ValueError("Reporting mode must be light or detailed")
+    return LIGHT_INSTRUCTIONS if mode == "light" else DETAILED_INSTRUCTIONS
+
+
 def integration_config(
-    server_url: str, python_executable: str, bridge_path: str, *, discovery_path: str | None = None
+    server_url: str, python_executable: str, bridge_path: str, *, discovery_path: str | None = None,
+    reporting_mode: ReportingMode = "light",
 ) -> dict:
     """Return portable snippets. Absolute paths allow launching from any project."""
+    instructions = reporting_instructions(reporting_mode)
     endpoint = server_url.rstrip("/")
     args = (["mcp", "--discovery", discovery_path] if discovery_path
             else [str(bridge_path), "--server-url", endpoint])
@@ -43,10 +73,14 @@ def integration_config(
         f"args = {json.dumps(args, ensure_ascii=False)}\n"
         "startup_timeout_sec = 20\n"
         "tool_timeout_sec = 30\n"
+        "[mcp_servers.codewatch.env]\n"
+        f"CODEWATCH_REPORTING_MODE = {json.dumps(reporting_mode)}\n"
     )
     return {
-        "mcpConfig": {"mcpServers": {"codewatch": {"command": command, "args": args}}},
+        "mcpConfig": {"mcpServers": {"codewatch": {"command": command, "args": args,
+                       "env": {"CODEWATCH_REPORTING_MODE": reporting_mode}}}},
         "codexConfig": codex_config,
-        "instructions": AGENT_INSTRUCTIONS,
+        "instructions": instructions,
+        "reportingMode": reporting_mode,
         "endpoint": endpoint,
     }

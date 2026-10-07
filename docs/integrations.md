@@ -214,3 +214,26 @@ protocol tests do not claim a manual end-to-end test inside every vendor's IDE.
 The bridge uses the SDK's stdio implementation; vendor-specific hooks are not
 required. Connection instructions were checked against official documentation on
 2026-09-19.
+
+## Light and Detailed reporting
+
+**Light is the default** for new MCP connections. In **Connect your AI**, choose
+**Reporting mode** before copying the JSON/TOML configuration and agent instructions.
+The selection is remembered in this browser/app profile.
+
+- **Light:** concise major-task/component milestones, important failures or blockers,
+  and final completion. No routine command-by-command reporting or copied terminal output.
+- **Detailed:** meaningful step updates, command start/results, test outcomes, and
+  agent-reported relationships, as in previous versions.
+
+Both modes retain automatic file/import watching and completion notifications.
+Light produces fewer narrated steps; completion still requires the agent to call
+`codewatch_complete`. Start a subsequent task with a progress report to rearm alerts.
+
+The copied MCP configuration sets `CODEWATCH_REPORTING_MODE` to `light` or `detailed`.
+Unset means Light. After changing modes, replace the client configuration and restart
+its MCP connection. Replace old reporting instructions in your project/chat as well;
+the selector does not remotely reconfigure an already-running coding agent.
+All seven tools remain available in either mode. This is a cooperative reporting policy,
+not a hard limit on tool calls. It reduces requested reporting, without guaranteeing
+any particular token savings or subscription usage-limit reduction.

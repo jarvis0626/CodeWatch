@@ -26,7 +26,7 @@ from backend.integrations.client import (
     CodeWatchClient as CodeWatchClient,
     NoRedirects as NoRedirects,
 )
-from backend.integrations.config import AGENT_INSTRUCTIONS
+from backend.integrations.config import reporting_instructions
 from backend.models.events import Stage
 
 
@@ -41,7 +41,8 @@ REPORT_ANNOTATIONS = ToolAnnotations(
 
 def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | None = None) -> FastMCP:
     client = CodeWatchClient(server_url, discovery_path=discovery_path)
-    server = FastMCP("CodeWatch", instructions=AGENT_INSTRUCTIONS, log_level="WARNING")
+    instructions = reporting_instructions(os.environ.get("CODEWATCH_REPORTING_MODE", "light"))
+    server = FastMCP("CodeWatch", instructions=instructions, log_level="WARNING")
 
     @server.tool(annotations=REPORT_ANNOTATIONS)
     def codewatch_watch_project(
@@ -70,7 +71,8 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
     ) -> dict[str, Any]:
         """Show what you are doing now and highlight affected project-relative file paths.
 
-        Call before a meaningful step, then report the observed outcome after the work.
+        Follow the configured reporting mode: Light uses major milestones only;
+        Detailed reports meaningful steps and their outcomes.
         Describe concrete actions and connections, not hidden reasoning or unverified results.
         """
         return client.request(
@@ -183,14 +185,14 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
         )
 
     @server.resource("codewatch://instructions")
-    def reporting_instructions() -> str:
+    def reporting_guide() -> str:
         """How to make an AI development task visible in CodeWatch."""
-        return AGENT_INSTRUCTIONS
+        return instructions
 
     @server.prompt()
     def watch_my_work() -> str:
         """Keep the CodeWatch project map and activity timeline updated while working."""
-        return AGENT_INSTRUCTIONS
+        return instructions
 
     return server
 

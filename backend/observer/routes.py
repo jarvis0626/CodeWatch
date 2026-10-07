@@ -7,6 +7,7 @@ import sys
 import anyio
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
+from backend.integrations.config import ReportingMode
 from backend.observer import reports
 from backend.observer.manager import WatchManager
 from backend.observer.requests import (
@@ -60,12 +61,12 @@ def make_router(
             raise HTTPException(409, str(exc)) from exc
 
     @router.get("/api/integrations")
-    async def integrations():
+    async def integrations(reporting_mode: ReportingMode = "light"):
         from backend.integrations.config import integration_config
 
         return integration_config(
             server_url, sys.executable, str(Path(__file__).resolve().parents[1] / "mcp_server.py"),
-            discovery_path=discovery_path,
+            discovery_path=discovery_path, reporting_mode=reporting_mode,
         )
 
     def report(body, handler):
