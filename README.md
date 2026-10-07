@@ -46,11 +46,11 @@ Sharing links are temporary and expire after eight hours. Restarting sharing req
 
 **Light** is the default in the current source version. It asks for major milestones, important blockers, and final completion. **Detailed** keeps step-by-step reports, command/test outcomes, and reported file relationships.
 
-![Switching between Light and Detailed reporting instructions in Connect your AI](docs/media/reporting-modes.gif)
+![Switching between saved Light and Detailed modes in CodeWatch](docs/media/reporting-modes.gif)
 
 Both modes keep automatic file watching and completion notifications. Light asks for fewer MCP reporting calls; it does not guarantee a particular reduction in tokens or subscription usage.
 
-Select the mode in **Connect your AI**, copy the configuration and instructions, then reload your agent’s MCP connection. Replace any older reporting instructions in your project or chat. Changing the selector does not reconfigure an already-running agent.
+Connect MCP once, then select **Light** or **Detailed** in **Connect your AI**. The desktop app remembers your choice. Your connected agent receives the selected guidance on its next CodeWatch tool call—no instruction text to copy and no mode-specific configuration to replace.
 
 [Reporting mode setup](docs/integrations.md#light-and-detailed-reporting)
 
@@ -60,12 +60,16 @@ Select the mode in **Connect your AI**, copy the configuration and instructions,
 
 1. Download the [v0.5.0 portable executable](https://github.com/jarvis0626/CodeWatch/releases/download/v0.5.0/CodeWatch-0.5.0-x64-portable.exe).
 2. Open it and choose your project folder.
-3. Open **Connect your AI**, add the generated configuration to your MCP-capable coding tool, and give the agent the reporting instructions.
+3. Open **Connect your AI**, add the generated configuration to your MCP-capable coding tool, then start a task with CodeWatch enabled.
 4. Start your task. Pin the companion or enable phone viewing as needed.
 
 The portable app includes its runtime: no Python, Node, Docker, or model API key is required. The Windows build is unsigned. Quit an older instance before opening a new version; there is no automatic updater.
 
-**Version note:** the linked release is v0.5.0. Light/Detailed selection is in v0.5.1 source on `main`; the attempted v0.5.1 build passed the mode-selector check but failed the packaged Windows notification-activation check, so that workflow did not publish a verified executable. [Build results](https://github.com/jarvis0626/CodeWatch/actions/runs/37583440510).
+**Version note:** source on `main` is v0.5.1. The Windows workflow publishes a new
+release only after backend, browser, packaged notification, icon, and MCP checks
+pass. Check the [latest release](https://github.com/jarvis0626/CodeWatch/releases/latest)
+for the currently available EXE and [Actions](https://github.com/jarvis0626/CodeWatch/actions)
+for builds in progress.
 
 Copy MCP paths from **your own app**. After upgrading, refresh the configuration if the bundled helper path changes. Session history is currently held in memory and does not survive restarting the backend.
 

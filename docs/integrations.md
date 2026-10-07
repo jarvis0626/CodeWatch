@@ -106,26 +106,20 @@ file-editing or terminal capabilities. CodeWatch's bridge only observes/reports.
 Keep the backend bound to loopback. This version does not ship a public authenticated
 MCP service, and its local backend should not be published directly to the internet.
 
-## 3. Tell the AI to report its work
+## 3. Choose how much progress to show
 
-The server supplies reporting instructions during MCP initialization, plus a
-`watch_my_work` prompt and a `codewatch://instructions` resource. For clients that
-do not automatically apply server instructions, copy the dashboard's instructions
-into your chat or the project's agent rules. Start with:
+Select **Light** or **Detailed** in **Connect your AI**. Light is the default.
+CodeWatch supplies bootstrap guidance during MCP initialization and returns the
+saved reporting policy on the first tool response and whenever the mode changes.
+The app does not show agent instructions to copy. Keep the same MCP configuration
+when switching modes; your agent learns the new choice on its next CodeWatch call.
+The `watch_my_work` prompt and `codewatch://instructions` resource also return the
+current policy.
 
-```text
-Use CodeWatch while you work on this project.
-Call codewatch_watch_project with this project's absolute path and your agent name.
-Keep session.runId and pass it as run_id on each report.
-Before meaningful steps, report the stage, action, and affected relative file paths
-with codewatch_progress. Explain how the pieces connect with codewatch_relationship.
-After running commands/tests through your normal tools, report their actual results.
-Finish with codewatch_complete when this task is done.
-```
-
-Use the permissions your IDE provides for these tools. Reporting needs enabled
-tool access and a cooperating agent; connecting a server alone does not guarantee
-that every model will call it at every step.
+Enable CodeWatch tools in your MCP client. If an agent does not use connected tools
+automatically, ask it to use CodeWatch for the task. Reporting still requires a
+cooperating agent; MCP cannot force a client to report every action. Remove any
+older manually pasted CodeWatch rules that conflict with the app's selected mode.
 
 ### Example: building a login flow
 
@@ -194,7 +188,7 @@ running backend's complete schema.
 - **Tools connect but say “Cannot reach CodeWatch”:** start the backend, check its
   port, and update `--server-url`. The bridge only accepts loopback HTTP(S) origins.
 - **Map updates but no stage changes:** file watching is working. Enable MCP tools
-  in the client and give the AI the reporting instructions above.
+  in the client and ask the AI to use CodeWatch for the task.
 - **No activity while the AI is thinking:** the bridge receives explicit action
   reports and filesystem changes; it cannot inspect private reasoning.
 - **A report says the run is no longer active:** the project/session changed.
@@ -217,23 +211,25 @@ required. Connection instructions were checked against official documentation on
 
 ## Light and Detailed reporting
 
-**Light is the default** for new MCP connections. In **Connect your AI**, choose
-**Reporting mode** before copying the JSON/TOML configuration and agent instructions.
-The selection is remembered in this browser/app profile.
+**Light is the default.** Choose **Reporting mode** in **Connect your AI**.
+Desktop preferences survive app restarts. In source-only server sessions, the
+choice lasts until the backend restarts.
 
 - **Light:** concise major-task/component milestones, important failures or blockers,
   and final completion. No routine command-by-command reporting or copied terminal output.
 - **Detailed:** meaningful step updates, command start/results, test outcomes, and
-  agent-reported relationships, as in previous versions.
+  agent-reported relationships.
 
 Both modes retain automatic file/import watching and completion notifications.
-Light produces fewer narrated steps; completion still requires the agent to call
-`codewatch_complete`. Start a subsequent task with a progress report to rearm alerts.
+Completion still requires `codewatch_complete`; begin a subsequent task with a
+progress report to rearm alerts.
 
-The copied MCP configuration sets `CODEWATCH_REPORTING_MODE` to `light` or `detailed`.
-Unset means Light. After changing modes, replace the client configuration and restart
-its MCP connection. Replace old reporting instructions in your project/chat as well;
-the selector does not remotely reconfigure an already-running coding agent.
-All seven tools remain available in either mode. This is a cooperative reporting policy,
-not a hard limit on tool calls. It reduces requested reporting, without guaranteeing
-any particular token savings or subscription usage-limit reduction.
+MCP configuration is identical in both modes. Legacy `CODEWATCH_REPORTING_MODE`
+environment values are ignored; the app's saved choice is authoritative. Existing
+clients receive `reportingMode` in tool responses and `reportingInstructions` only
+on the first response or a mode change. Restart an old MCP process once after
+upgrading to load this behavior. Later mode changes need no reconnection.
+
+All seven tools remain available in either mode. This is a cooperative reporting
+policy, not a hard limit on tool calls. It reduces requested reporting without
+guaranteeing a particular token saving or subscription usage-limit reduction.

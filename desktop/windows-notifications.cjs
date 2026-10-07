@@ -21,7 +21,7 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
   const registry = dependencies.runRegistry || runRegistry;
   const sleep = dependencies.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms)));
   const platform = dependencies.platform || process.platform;
-  const state = { registered: false, repaired: false };
+  const state = { registered: false, repaired: false, reason: null };
   const validClsid = /^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i;
   const same = (a, b) => typeof a === 'string' && typeof b === 'string' &&
     a.replaceAll('/', '\\').toLowerCase() === b.replaceAll('/', '\\').toLowerCase();
@@ -97,29 +97,41 @@ function createWindowsNotificationRegistration({ app, shell, userData, executabl
     // its temporary path; otherwise its worker could overwrite our repair afterward.
     let server;
     for (let attempt = 0; attempt < 21; attempt++) {
-      if (closed || !identityMatches()) return;
+      if (closed) return;
+      if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
       server = await readServer();
       if (same(serverTarget(server), innerExecutable) || state.repaired) break;
       if (attempt < 20) await sleep(100);
     }
-    if (closed || !identityMatches()) return;
-    if (!ownedShortcut(shortcutPath) || (smoke && !ownedShortcut(automaticPath))) return;
+    if (closed) return;
+      if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
+    if (!ownedShortcut(shortcutPath) || (smoke && !ownedShortcut(automaticPath))) {
+      state.reason = 'Shortcut ownership check failed';
+      for (const [label, file] of [['shortcut', shortcutPath], ['automatic', automaticPath]]) {
+        try { const value = shell.readShortcutLink(file); state[label] = { target: value.target, appUserModelId: value.appUserModelId, toastActivatorClsid: value.toastActivatorClsid }; }
+        catch (error) { state[label] = { error: error.message }; }
+      }
+      return;
+    }
     writeShortcut(shortcutPath);
     if (smoke) writeShortcut(automaticPath);
     // Preserve an activation flag if a future Electron release writes one.
     const activation = /(?:^|\s)(--notification-launch-id(?:=[^\r\n]*)?)$/i.exec(server || '')?.[1];
     const command = `"${executable}"${activation ? ` ${activation}` : ''}`;
     await registry(['add', registryKey, '/ve', '/t', 'REG_SZ', '/d', 'CodeWatch Notification Activator', '/f']);
-    if (closed || !identityMatches()) return;
+    if (closed) return;
+      if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
     await registry(['add', registryKey, '/v', 'CustomActivator', '/t', 'REG_DWORD', '/d', '1', '/f']);
-    if (closed || !identityMatches()) return;
+    if (closed) return;
+      if (!identityMatches()) { state.reason = `Activator identity changed: ${app.toastActivatorCLSID}`; return; }
     await registry(['add', serverKey, '/ve', '/t', 'REG_SZ', '/d', command, '/f']);
     state.repaired = true;
+    state.reason = null;
   }
   function repair() {
     if (closed) return Promise.resolve();
     if (pending) return pending;
-    pending = repairOnce().catch(() => log('Windows notification activation will be repaired on the next completion report.'))
+    pending = repairOnce().catch(error => { state.reason = error.message; log('Windows notification activation will be repaired on the next completion report.'); })
       .finally(() => { pending = undefined; });
     return pending;
   }

@@ -46,8 +46,18 @@ If run_id is rejected, use codewatch_status; never switch to another project aut
 Never send secrets, credentials, full environment variables, or hidden reasoning.
 If reporting is unavailable, tell the user once and continue the underlying task.
 """
-# Backwards-compatible import; new connections default to Light.
-AGENT_INSTRUCTIONS = LIGHT_INSTRUCTIONS
+# MCP supplies guidance automatically; the desktop app owns the active mode.
+AGENT_INSTRUCTIONS = """Use CodeWatch to report progress automatically; no pasted instructions are needed.
+Before each task call codewatch_watch_project (or codewatch_status for the attached project).
+Keep session.runId as run_id. Follow reportingInstructions in tool responses; the latest
+response overrides earlier reporting guidance, including old environment settings.
+The user chooses Light or Detailed in CodeWatch. Light is the default until discovered.
+Use short major-milestone updates in Light; Detailed includes step, command and test reports.
+Always report actual task completion with codewatch_complete. Begin a new task with progress.
+Optional codewatch_relationship reports describe known file connections.
+Reporting tools do not execute anything. Never invent results or expose secrets or reasoning.
+File changes are automatic. If disconnected, continue the task and mention it once.
+"""
 
 
 def reporting_instructions(mode: ReportingMode = "light") -> str:
@@ -73,12 +83,10 @@ def integration_config(
         f"args = {json.dumps(args, ensure_ascii=False)}\n"
         "startup_timeout_sec = 20\n"
         "tool_timeout_sec = 30\n"
-        "[mcp_servers.codewatch.env]\n"
-        f"CODEWATCH_REPORTING_MODE = {json.dumps(reporting_mode)}\n"
+
     )
     return {
-        "mcpConfig": {"mcpServers": {"codewatch": {"command": command, "args": args,
-                       "env": {"CODEWATCH_REPORTING_MODE": reporting_mode}}}},
+        "mcpConfig": {"mcpServers": {"codewatch": {"command": command, "args": args}}},
         "codexConfig": codex_config,
         "instructions": instructions,
         "reportingMode": reporting_mode,

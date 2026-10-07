@@ -56,3 +56,30 @@ jobs:
           name: CodeWatch-Windows-x64
           path: dist/windows/*.exe
           if-no-files-found: error
+
+  release:
+    needs: package
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: CodeWatch-Windows-x64
+          path: release-assets
+      - name: Publish verified portable executable for a new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./desktop/package.json').version")
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; keeping its assets unchanged."
+            exit 0
+          fi
+          gh release create "$tag" release-assets/*.exe --target "$GITHUB_SHA" \
+            --title "CodeWatch $tag" --generate-notes

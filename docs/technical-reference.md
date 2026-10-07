@@ -72,12 +72,12 @@ Use **http://localhost:5173** for Vite development. `/api`, `/ws`, `/health`, an
 
 ## Connect your AI / IDE
 
-Click **Connect your AI** in the dashboard to copy a machine-specific configuration and the reporting instructions. It generates absolute paths to this installation; it does not change your IDE settings automatically.
+Click **Connect your AI** in the dashboard to copy a machine-specific configuration. It generates absolute paths to this installation; it does not change your IDE settings automatically.
 
 1. Run CodeWatch locally and watch your project.
 2. Add the generated CodeWatch MCP server to your tool's MCP configuration.
 3. Enable the server/tools in that tool.
-4. Give the agent the provided reporting instructions with your task.
+4. Choose Light or Detailed in the app and start a task with CodeWatch enabled.
 5. Keep CodeWatch visible beside the editor, or in the editor's browser panel if it has one.
 
 **[Full integration guide: Antigravity, ChatGPT/Codex, and other MCP clients](integrations.md)**
@@ -88,8 +88,8 @@ ChatGPT in a browser requires an additional supported connection, such as a conf
 
 Light reporting is now the default: major milestones, important blockers, and final
 completion. Choose **Detailed** in **Connect your AI** for command/test and finer
-step reports. Copy the selected configuration and instructions, then reload your
-agent's MCP connection. File watching and completion alerts work in both modes.
+step reports. Connect MCP once; mode changes are supplied automatically on the
+next CodeWatch tool response. File watching and completion alerts work in both modes.
 [Reporting mode setup](integrations.md#light-and-detailed-reporting).
 
 ### MCP tools

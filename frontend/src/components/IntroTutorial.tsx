@@ -19,7 +19,7 @@ const steps = [
   {
     icon: Bot,
     title: 'Connect your coding agent',
-    description: 'Open Connect your AI. Copy the MCP configuration into a compatible coding tool, then give your agent the supplied reporting instructions.',
+    description: 'Open Connect your AI. Copy the MCP configuration into a compatible coding tool, then choose Light or Detailed in CodeWatch. Reporting guidance is supplied automatically.',
     detail: 'Work steps appear when the agent reports them. Connecting alone does not capture every action.',
     cue: 'Connect your AI → Reported work steps',
   },

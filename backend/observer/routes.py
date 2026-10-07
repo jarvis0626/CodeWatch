@@ -1,13 +1,15 @@
 """Local project and producer API. Watching never executes the target repository."""
 
 import asyncio
+import json
 from pathlib import Path
 import sys
 
 import anyio
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 
-from backend.integrations.config import ReportingMode
+from backend.integrations.config import ReportingMode, reporting_instructions
 from backend.observer import reports
 from backend.observer.manager import WatchManager
 from backend.observer.requests import (
@@ -21,14 +23,48 @@ from backend.observer.requests import (
 )
 
 
+class ReportingPreference(BaseModel):
+    mode: ReportingMode
+
+
 def make_router(
     manager: WatchManager, origins: list[str], server_url: str, *, discovery_path: str | None = None
 ) -> APIRouter:
     router = APIRouter()
+    preference_path = Path(discovery_path).parent / "reporting-mode.json" if discovery_path else None
+    mode: ReportingMode = "light"
+    if preference_path and preference_path.exists():
+        try:
+            saved = json.loads(preference_path.read_text(encoding="utf-8"))
+            mode = ReportingPreference.model_validate(saved).mode
+        except (OSError, ValueError):
+            pass
+
+    def guidance():
+        return {"mode": mode, "instructions": reporting_instructions(mode)}
+
+    @router.get("/api/reporting")
+    async def reporting():
+        return {"mode": mode}
+
+    @router.post("/api/reporting")
+    async def set_reporting(body: ReportingPreference):
+        nonlocal mode
+        if preference_path:
+            try:
+                preference_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = preference_path.with_suffix(".tmp")
+                temporary.write_text(body.model_dump_json(), encoding="utf-8")
+                temporary.replace(preference_path)
+            except OSError as exc:
+                raise HTTPException(500, "Could not save reporting mode; please retry") from exc
+        mode = body.mode
+        return {"mode": mode}
+
 
     @router.get("/api/session")
     async def session():
-        return {"session": manager.current.info() if manager.current else None}
+        return {"session": manager.current.info() if manager.current else None, "reporting": guidance()}
 
     @router.get("/api/notifications")
     async def notifications():
@@ -49,7 +85,7 @@ def make_router(
     @router.post("/api/watch")
     async def watch(body: WatchRequest):
         try:
-            return await manager.start(body.path, body.agentName)
+            return {**await manager.start(body.path, body.agentName), "reporting": guidance()}
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
@@ -61,12 +97,12 @@ def make_router(
             raise HTTPException(409, str(exc)) from exc
 
     @router.get("/api/integrations")
-    async def integrations(reporting_mode: ReportingMode = "light"):
+    async def integrations():
         from backend.integrations.config import integration_config
 
         return integration_config(
             server_url, sys.executable, str(Path(__file__).resolve().parents[1] / "mcp_server.py"),
-            discovery_path=discovery_path, reporting_mode=reporting_mode,
+            discovery_path=discovery_path, reporting_mode=mode,
         )
 
     def report(body, handler):
@@ -82,6 +118,7 @@ def make_router(
         manager.publish({"kind": "session", "session": current.info()})
         return {
             "accepted": True,
+            "reporting": guidance(),
             "runId": current.run_id,
             "eventIds": [event["eventId"] for event in current.history if event["sequence"] > sequence],
         }

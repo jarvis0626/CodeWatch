@@ -287,7 +287,7 @@ module.exports = async function smoke({ app, window, endpoint, token, discovery,
       versions: process.versions, endpoint, helper: config.command, notifications: notificationState }, null, 2));
   } catch (error) {
     phoneWindow?.destroy();
-    fs.writeFileSync(resultPath, JSON.stringify({ ok: false, checks, error: error.stack || error.message }, null, 2));
+    fs.writeFileSync(resultPath, JSON.stringify({ ok: false, checks, notificationRegistration: notificationRegistration?.state, error: error.stack || error.message }, null, 2));
     throw error;
   }
 };

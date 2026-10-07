@@ -26,7 +26,7 @@ from backend.integrations.client import (
     CodeWatchClient as CodeWatchClient,
     NoRedirects as NoRedirects,
 )
-from backend.integrations.config import reporting_instructions
+from backend.integrations.config import AGENT_INSTRUCTIONS
 from backend.models.events import Stage
 
 
@@ -41,8 +41,22 @@ REPORT_ANNOTATIONS = ToolAnnotations(
 
 def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | None = None) -> FastMCP:
     client = CodeWatchClient(server_url, discovery_path=discovery_path)
-    instructions = reporting_instructions(os.environ.get("CODEWATCH_REPORTING_MODE", "light"))
+    instructions = AGENT_INSTRUCTIONS
     server = FastMCP("CodeWatch", instructions=instructions, log_level="WARNING")
+
+    last_mode = None
+
+    def request(method, path, payload=None):
+        nonlocal last_mode
+        result = client.request(method, path, payload)
+        guidance = result.pop("reporting", None)
+        if guidance and guidance.get("mode") in {"light", "detailed"}:
+            mode = guidance["mode"]
+            result["reportingMode"] = mode
+            if mode != last_mode:
+                result["reportingInstructions"] = guidance["instructions"]
+                last_mode = mode
+        return result
 
     @server.tool(annotations=REPORT_ANNOTATIONS)
     def codewatch_watch_project(
@@ -54,12 +68,12 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
         The same already-watched directory reuses its session. Choosing a different directory
         switches the dashboard's active project. The watcher reads files without modifying them.
         """
-        return {"session": client.request("POST", "/api/watch", {"path": path, "agentName": agent_name})}
+        return {"session": request("POST", "/api/watch", {"path": path, "agentName": agent_name})}
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def codewatch_status() -> dict[str, Any]:
         """Read the active watched project, run ID, agent name, and watcher connection status."""
-        return client.request("GET", "/api/session")
+        return request("GET", "/api/session")
 
     @server.tool(annotations=REPORT_ANNOTATIONS)
     def codewatch_progress(
@@ -75,7 +89,7 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
         Detailed reports meaningful steps and their outcomes.
         Describe concrete actions and connections, not hidden reasoning or unverified results.
         """
-        return client.request(
+        return request(
             "POST",
             "/api/agent/progress",
             {
@@ -110,7 +124,7 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
         }
         if description is not None:
             payload["description"] = description
-        return client.request("POST", "/api/agent/relationship", payload)
+        return request("POST", "/api/agent/relationship", payload)
 
     @server.tool(annotations=REPORT_ANNOTATIONS)
     def codewatch_test(
@@ -138,7 +152,7 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
             payload["path"] = path
         if details is not None:
             payload["details"] = details
-        return client.request("POST", "/api/agent/test", payload)
+        return request("POST", "/api/agent/test", payload)
 
     @server.tool(annotations=REPORT_ANNOTATIONS)
     def codewatch_command(
@@ -167,14 +181,14 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
             payload["output"] = output
         if exit_code is not None:
             payload["exitCode"] = exit_code
-        return client.request("POST", "/api/agent/command", payload)
+        return request("POST", "/api/agent/command", payload)
 
     @server.tool(annotations=REPORT_ANNOTATIONS)
     def codewatch_complete(
         run_id: RunId, message: Message, agent_name: AgentName = "AI agent"
     ) -> dict[str, Any]:
         """Mark your requested task complete with an evidence-based summary; file watching continues."""
-        return client.request(
+        return request(
             "POST",
             "/api/agent/complete",
             {
@@ -187,12 +201,12 @@ def create_mcp(server_url: str = DEFAULT_SERVER_URL, *, discovery_path: str | No
     @server.resource("codewatch://instructions")
     def reporting_guide() -> str:
         """How to make an AI development task visible in CodeWatch."""
-        return instructions
+        return client.request("GET", "/api/session").get("reporting", {}).get("instructions", instructions)
 
     @server.prompt()
     def watch_my_work() -> str:
         """Keep the CodeWatch project map and activity timeline updated while working."""
-        return instructions
+        return client.request("GET", "/api/session").get("reporting", {}).get("instructions", instructions)
 
     return server
 

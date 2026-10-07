@@ -1,23 +1,31 @@
 import { expect, test } from '@playwright/test';
 
-test('reporting mode defaults to Light and keeps configuration and instructions in sync', async ({ page }) => {
+test('mode is saved in the app without showing instructions or changing MCP config', async ({ page, request }) => {
+  await request.post('http://127.0.0.1:8000/api/reporting', { data: { mode: 'light' } });
   await page.goto('/');
   await page.getByRole('button', { name: /Connect your AI/ }).click();
   const mode = page.getByLabel('Reporting mode', { exact: true });
   const format = page.getByLabel('Configuration format');
   const snippet = page.locator('.integration-code pre');
   await expect(mode).toHaveValue('light');
-  await expect(snippet).toContainText('"CODEWATCH_REPORTING_MODE": "light"');
-  await format.selectOption('instructions');
-  await expect(snippet).toContainText('Always call codewatch_complete');
+  await expect(snippet).toContainText('mcpServers');
+  const config = await snippet.innerText();
+  await expect(format.locator('option')).toHaveCount(2);
+  await expect(page.getByRole('option', { name: 'Agent instructions' })).toHaveCount(0);
   await mode.selectOption('detailed');
-  await expect(snippet).toContainText('Report each command as running');
-  await format.selectOption('codex');
-  await expect(snippet).toContainText('CODEWATCH_REPORTING_MODE = "detailed"');
+  await expect(page.getByRole('status')).toContainText('Saved.');
+  await expect(mode).toHaveValue('detailed');
+  await expect(snippet).toHaveText(config);
   await page.reload();
   await page.getByRole('button', { name: /Connect your AI/ }).click();
   await expect(mode).toHaveValue('detailed');
-  await expect(snippet).toContainText('"CODEWATCH_REPORTING_MODE": "detailed"');
+  await expect(snippet).toHaveText(config);
+  await page.route('**/api/reporting', route => route.fulfill({ status: 500, json: { detail: 'Could not save reporting mode; please retry' } }));
   await mode.selectOption('light');
-  await expect(snippet).toContainText('"CODEWATCH_REPORTING_MODE": "light"');
+  await expect(page.getByRole('alert')).toContainText('Could not save');
+  await expect(mode).toHaveValue('detailed');
+  await page.unroute('**/api/reporting');
+  await mode.selectOption('light');
+  await expect(mode).toHaveValue('light');
+  await expect(snippet).toHaveText(config);
 });

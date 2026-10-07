@@ -215,7 +215,7 @@ def test_mcp_stdio_handshake_discovery_reporting_and_stale_run(reporting_backend
 
     asyncio.run(asyncio.wait_for(exercise(), timeout=30))
     assert requests[0] == ("POST", "/api/watch", {"path": "D:/sample", "agentName": "Antigravity"})
-    reports = {path: payload for method, path, payload in requests[2:-1]}
+    reports = {path: payload for method, path, payload in requests if method == "POST" and path.startswith("/api/agent/") and payload.get("runId") == "run-1"}
     assert reports["/api/agent/progress"]["paths"] == ["ui/Login.tsx", "api/login.py"]
     assert reports["/api/agent/relationship"]["description"].startswith("The form")
     assert reports["/api/agent/test"]["attempt"] == 2
@@ -259,7 +259,7 @@ def test_generated_configs_round_trip_windows_paths_with_spaces_and_unicode():
     json_config = config["mcpConfig"]["mcpServers"]["codewatch"]
     assert toml_config["command"] == json_config["command"] == executable
     assert toml_config["args"] == json_config["args"] == [bridge, "--server-url", "http://127.0.0.1:8000"]
-    assert config["instructions"] == AGENT_INSTRUCTIONS
+    assert "Light reporting mode" in config["instructions"]
     assert config["endpoint"] == "http://127.0.0.1:8000"
 
 
@@ -336,38 +336,57 @@ def test_mcp_tools_match_actual_backend_contract(monkeypatch, tmp_path):
         asyncio.run(asyncio.wait_for(exercise(), timeout=15))
 
 
-@pytest.mark.parametrize('mode', ['light', 'detailed'])
-def test_reporting_mode_round_trips_config_and_mcp(monkeypatch, mode):
+
+def test_mode_changes_reach_connected_mcp_without_reconfiguration(monkeypatch, tmp_path):
     from backend.integrations.config import reporting_instructions
 
-    config = integration_config('http://127.0.0.1:8000', 'helper.exe', 'bridge.py',
-                                discovery_path='C:/User Data/connection.json', reporting_mode=mode)
-    json_server = config['mcpConfig']['mcpServers']['codewatch']
-    toml_server = tomllib.loads(config['codexConfig'])['mcp_servers']['codewatch']
-    assert json_server['env'] == toml_server['env'] == {'CODEWATCH_REPORTING_MODE': mode}
-    assert json_server['args'] == toml_server['args'] == ['mcp', '--discovery', 'C:/User Data/connection.json']
-    assert config['instructions'] == reporting_instructions(mode)
-    monkeypatch.setenv('CODEWATCH_REPORTING_MODE', mode)
+    discovery = str(tmp_path / 'profile' / 'desktop-connection.json')
+    app = create_app(watch_interval=60, discovery_path=discovery)
+    with TestClient(app) as backend:
+        def local_request(self, method, path, payload=None):
+            response = backend.request(method, path, json=payload)
+            response.raise_for_status()
+            return response.json()
+        monkeypatch.setattr(CodeWatchClient, 'request', local_request)
+        monkeypatch.setenv('CODEWATCH_REPORTING_MODE', 'detailed')  # Old config cannot override app.
+        initial = backend.get('/api/integrations').json()
+        assert initial['reportingMode'] == 'light'
+        json_server = initial['mcpConfig']['mcpServers']['codewatch']
+        toml_server = tomllib.loads(initial['codexConfig'])['mcp_servers']['codewatch']
+        assert 'env' not in json_server and 'env' not in toml_server
 
-    async def check():
-        async with create_connected_server_and_client_session(create_mcp()) as client:
-            initialized = await client.initialize()
-            assert initialized.instructions == config['instructions']
-            resource = await client.read_resource('codewatch://instructions')
-            assert resource.contents[0].text == config['instructions']
-            prompt = await client.get_prompt('watch_my_work')
-            assert prompt.messages[0].content.text == config['instructions']
-            assert len((await client.list_tools()).tools) == 7
+        async def check():
+            async with create_connected_server_and_client_session(create_mcp()) as client:
+                assert (await client.initialize()).instructions == AGENT_INSTRUCTIONS
+                first = await client.call_tool('codewatch_status', {})
+                first_data = json.loads(first.content[0].text)
+                assert first_data['reportingMode'] == 'light'
+                assert first_data['reportingInstructions'] == reporting_instructions('light')
+                again = await client.call_tool('codewatch_status', {})
+                assert 'reportingInstructions' not in json.loads(again.content[0].text)
+                assert backend.post('/api/reporting', json={'mode': 'detailed'}).status_code == 200
+                changed = await client.call_tool('codewatch_status', {})
+                assert json.loads(changed.content[0].text)['reportingInstructions'] == reporting_instructions('detailed')
+                resource = await client.read_resource('codewatch://instructions')
+                assert resource.contents[0].text == reporting_instructions('detailed')
+                prompt = await client.get_prompt('watch_my_work')
+                assert prompt.messages[0].content.text == reporting_instructions('detailed')
+                assert len((await client.list_tools()).tools) == 7
+        asyncio.run(check())
+        updated = backend.get('/api/integrations').json()
+        assert updated['mcpConfig'] == initial['mcpConfig']
+        assert updated['codexConfig'] == initial['codexConfig']
+        assert backend.post('/api/reporting', json={'mode': 'invalid'}).status_code == 422
+        assert backend.get('/api/reporting').json()['mode'] == 'detailed'
+    with TestClient(create_app(watch_interval=60, discovery_path=discovery)) as restarted:
+        assert restarted.get('/api/reporting').json()['mode'] == 'detailed'
 
-    asyncio.run(check())
 
-
-def test_reporting_mode_api_defaults_and_validation():
-    with TestClient(create_app(watch_interval=60)) as client:
-        default = client.get('/api/integrations').json()
-        assert default['reportingMode'] == 'light'
-        assert 'Always call codewatch_complete' in default['instructions']
-        detailed = client.get('/api/integrations?reporting_mode=detailed').json()
-        assert detailed['reportingMode'] == 'detailed'
-        assert 'Report each command as running' in detailed['instructions']
-        assert client.get('/api/integrations?reporting_mode=invalid').status_code == 422
+def test_mode_save_failure_does_not_change_active_mode(monkeypatch, tmp_path):
+    discovery = str(tmp_path / 'profile' / 'desktop-connection.json')
+    with TestClient(create_app(discovery_path=discovery)) as backend:
+        def fail(*args, **kwargs):
+            raise OSError('disk unavailable')
+        monkeypatch.setattr(Path, 'write_text', fail)
+        assert backend.post('/api/reporting', json={'mode': 'detailed'}).status_code == 500
+        assert backend.get('/api/reporting').json()['mode'] == 'light'

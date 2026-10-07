@@ -9,10 +9,12 @@ No image-hosting account or external tracking endpoint is required.
   The final frame opens the implementation card to show files and an observed import.
   This is a controlled example, not a recording of an autonomous coding agent.
 - `reporting-modes.gif`: the running integration panel switching between Light and
-  Detailed, with the corresponding instructions loaded from the backend.
+  Detailed, saving the choice in the backend while the MCP configuration stays
+  unchanged. Agent instructions are no longer shown in the app.
 
-Captured on 2026-10-07 from source commit `092e9a5` using headless Chromium and
-Playwright. GIFs assemble actual UI screenshots with timed holds; they are not
+The work-flow frames were captured on 2026-10-07 from source commit `092e9a5`;
+the mode frames were refreshed from the automatic mode-selection update.
+Both use headless Chromium and Playwright. GIFs assemble actual UI screenshots with timed holds; they are not
 continuous screen recordings. No UI state or feature was drawn into the images.
 Frames were padded to a common canvas and palette-quantized with Pillow.
 The capture uses a disposable example project and exposes no credentials or pairing links.
