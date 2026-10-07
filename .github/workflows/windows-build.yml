@@ -28,6 +28,9 @@ jobs:
         shell: pwsh
         run: |
           backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          backend/.venv/Scripts/python.exe -m pip install --no-deps -e .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           backend/.venv/Scripts/python.exe -m pytest -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           backend/.venv/Scripts/python.exe -m ruff check backend
