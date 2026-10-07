@@ -1,345 +1,104 @@
-﻿# CodeWatch
+# CodeWatch
 
-**See what your coding agent is building, and how the project connects.**
+**Follow your coding agent’s progress without digging through its chat history.**
 
-CodeWatch runs beside your existing editor or AI tool. On Windows, open the portable desktop executable and choose your project folder. Connect its MCP server to follow the agent's work as a flow of connected steps, with the latest report and reported working file in view. Pin the app to keep just this flow above your editor. Select a step to inspect its files, changes, tests, commands and known file connections; open the full app for the project map and event log.
+CodeWatch runs beside your editor and turns the agent’s reports into a connected work flow. See the current task, inspect the files involved, and check progress from your phone while the work continues on your computer.
 
-![CodeWatch connected work flow](docs/codewatch-work-flow.png)
+[Download for Windows](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.5.0) · [Connect your agent](docs/integrations.md) · [Phone setup](docs/phone-view.md) · [Run from source](docs/technical-reference.md#start-locally)
 
-## How it works, in plain language
+## See the work take shape
 
-You keep using your usual coding AI and editor. CodeWatch opens in its own desktop window and follows reported work and real saved files. The source CLI also supports the browser dashboard.
+![CodeWatch showing planning, implementation, review, and completion, then opening a step’s file details](docs/media/work-flow.gif)
 
-1. **Choose your project folder.** CodeWatch groups supported source files into your actual folders. Saving, creating, or deleting a file updates the map and recent changes.
-2. **Connect your AI.** Add the configuration from **Connect your AI** to an MCP-capable coding tool. MCP (Model Context Protocol) is the interface that lets an agent call CodeWatch's reporting tools.
-3. **Follow the work flow.** With the supplied reporting instructions, the agent describes its steps and names the files involved. Connected cards show their order and reported status. Select a card to see its file changes, results and known file connections. [Work flow guide](docs/work-flow.md).
-4. **Pin it beside your editor.** **Always on top** opens the compact companion, showing only the flow, latest report and working file. **Open full app** restores the complete dashboard while keeping it pinned.
-5. **Explore the project.** Open a folder or search for a file. Selecting it shows **Uses code from** and **Used by** lists, with agent-reported relationships explained separately. The full app includes the event log, command output and test results. File watching continues after the agent finishes. [Project map guide](docs/project-map.md).
-6. **Follow from your phone.** Enable **Phone view** and scan its QR code. The read-only progress view works across networks through a temporary internet connection. Keep the PC awake and CodeWatch online. [Phone view guide](docs/phone-view.md).
+*Animated walkthrough captured from the running app using scripted example agent reports and real file saves. The demo shows the reporting workflow, not an autonomous agent building an application.*
 
-### Example: asking an AI to build login
+Instead of scrolling back through a long coding conversation, keep the current work in view:
 
-| What happens | What you see in CodeWatch |
+| When you want to… | CodeWatch helps you… |
 | --- | --- |
-| The AI reports "Building the login form" with `ui/Login.tsx` | The current task changes and the form's file is highlighted. |
-| The AI saves the form and an API handler | The watcher records the real file changes. |
-| The AI reports that the form submits to `api/login.py` | Selecting the file shows that connection and explanation under **Agent-reported connections**; its optional diagram uses a dashed line. |
-| The test command runs through the wrapper and writes a fresh JUnit report | Its actual exit code and individual test outcomes appear. |
-| The AI reports completion | The task becomes complete; the map stays connected for later edits. |
+| Know what the agent is working on | Follow concise step summaries and reported working files. |
+| Understand a change | Select a step to inspect associated files, observed saves, reported results, and known connections. |
+| Keep coding without switching windows | Pin the compact companion beside your editor. |
+| Check a long task while away from your desk | Open the read-only phone view and enable completion alerts. |
+| Understand how the project fits together | Browse folders and see which files import or use other files. |
 
-**File changes are automatic. Task explanations need a cooperating agent.** CodeWatch does not read private reasoning or capture every AI action just because the integration is installed. This build does not include a marketplace IDE extension.
+**File changes are observed automatically. Step explanations and completion depend on the agent reporting them.** Connecting MCP alone does not capture every internal agent action or its private reasoning.
 
-### Find your way around
+## Keep the flow beside your editor
 
-- [Open the Windows executable](#windows-desktop-no-installation)
-- [Run from source](#start-locally)
-- [Connect your AI or IDE](#connect-your-ai--ide)
-- [Watch progress on your phone](docs/phone-view.md)
-- [Capture commands and tests](#capture-actual-terminal-commands)
-- [Understand the dashboard](#what-the-real-dashboard-shows)
-- [Scanner coverage and limits](#scanner-coverage-and-limits)
-- [Technical architecture](#event-and-transport-architecture)
-- [Run the checks](#development-and-verification)
-- [Integration setup and troubleshooting](docs/integrations.md)
+Use **Always on top** to switch to the compact companion. It keeps the work flow, latest report, and working file visible. Click a step for details; choose **Open full app** when you want the complete project map and event log.
 
-## Three complementary sources
+<img src="docs/codewatch-companion.png" alt="CodeWatch’s compact companion window with connected work steps" width="440">
 
-| Source | What it can show | What it does not establish |
-| --- | --- | --- |
-| Folder watcher | Real file creation, modification, deletion; supported static imports | Who edited a file, agent intent, runtime calls, test success |
-| MCP / HTTP agent reports | Agent-provided stage, current action, affected files, relationships, commands and tests | Hidden reasoning or independently verified tool results |
-| Explicit command wrapper | Executed command, working directory, output, exit code; fresh JUnit results | Commands launched outside the wrapper |
+Keep using your existing editor and MCP-capable coding agent. CodeWatch is a separate companion app; you do not need to move your development into it.
 
-The dashboard labels these sources. An indexed or settled file does not mean its code is correct. Import edges show static dependencies; an agent-reported edge can describe a higher-level connection such as a browser calling an API. Neither is a runtime trace.
+## Check progress from your phone
 
-## Windows desktop: no installation
+Enable **Phone view**, scan the QR code, and follow the same project from another Wi-Fi network or mobile data. The phone view is read-only: it cannot run commands or send the agent another prompt.
 
-**[Download CodeWatch for Windows x64](https://github.com/jarvis0626/CodeWatch/releases/download/v0.5.0/CodeWatch-0.5.0-x64-portable.exe)** from the [v0.5.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.5.0). This is the only file you need to copy to another Windows machine. Double-click it, click **Choose folder**, and keep using your editor. No terminal, Python, Node, Docker or model API key is required to run it.
+<img src="docs/codewatch-phone.png" alt="Phone view showing work steps, observed file changes, and completion alert controls" width="320">
 
-If you build locally, the same file is at `dist/windows/CodeWatch-0.5.0-x64-portable.exe`. GitHub downloads require access to this repository. To upgrade, quit the previous CodeWatch instance (use **Quit CodeWatch** if it is in the tray), then open the new executable. There is no automatic updater.
+Enable **completion alerts** in the paired phone browser to request background notifications. Keep the PC awake, online, and running CodeWatch with sharing active. On iPhone/iPad, use the Home Screen installation described in the [phone guide](docs/phone-view.md).
 
-Every launch opens the full app, including after a pinned companion session. A short first-run tutorial introduces folder watching, MCP reports, pinning and phone access. Completing or skipping it saves that choice in your Windows profile, so it stays dismissed on later launches.
+Sharing links are temporary and expire after eight hours. Restarting sharing requires a new link and alert setup. Browser permissions and OS notification settings affect delivery. “Work reported complete” means the agent reported completion; it does not certify that every test passed.
 
-The app opens a resizable window. **Always on top** switches to the compact work flow companion; **Open full app** restores the complete dashboard with the pin retained, and **Unpin** restores the full app without the pin. Both window sizes and positions are remembered. Closing it quits by default. Enable **Close to tray** to keep observing after closing the window; restore it from the tray, or choose **Quit CodeWatch** to stop its backend. CodeWatch only stops its own service.
+## Choose how much the agent reports
 
-Use **Connect your AI** for the existing cooperative MCP setup. The snippets launch a bundled helper, so MCP clients also need no installed Python. Client configuration and reporting instructions still require the setup described below; packaging does not add native vendor interception.
+**Light** is the default in the current source version. It asks for major milestones, important blockers, and final completion. **Detailed** keeps step-by-step reports, command/test outcomes, and reported file relationships.
 
-Copy the MCP configuration from **your own app**. Its paths use your Windows user-data directory; another person's `C:/Users/...` paths will not work on your machine. The helper filename includes a hash of the bundled executable: the same helper build has the same suffix, and a different build can have a different suffix. `desktop-connection.json` keeps the same filename inside each person's CodeWatch data directory. After upgrading, use the configuration shown by the app if its helper path changed.
+![Switching between Light and Detailed reporting instructions in Connect your AI](docs/media/reporting-modes.gif)
 
-To check the connection, ask your coding agent to use CodeWatch to report a short progress message and modify a source file. The report should appear in the **Work flow**, and the save should appear in its step details and **File changes**. A saved file alone verifies the watcher; an accepted agent report also verifies the MCP connection.
+Both modes keep automatic file watching and completion notifications. Light asks for fewer MCP reporting calls; it does not guarantee a particular reduction in tokens or subscription usage.
 
-The portable executable extracts its bundled runtime automatically. Preferences, logs and a stable MCP helper live under `%APPDATA%/CodeWatch`; the discovery credential is encrypted with Windows DPAPI. Moving the portable executable does not break your MCP configuration. Sessions/history remain in memory in this version.
+Select the mode in **Connect your AI**, copy the configuration and instructions, then reload your agent’s MCP connection. Replace any older reporting instructions in your project or chat. Changing the selector does not reconfigure an already-running agent.
 
-This build is unsigned. [Windows build and verification details](docs/windows-packaging.md) describe how to reproduce it and the tested capabilities.
+[Reporting mode setup](docs/integrations.md#light-and-detailed-reporting)
 
-Phone sharing is optional and starts off. **Enable phone view** creates a QR link to a separate read-only progress view through Cloudflare. It works on mobile data or another network while your PC stays awake and online. **Stop sharing**, changing projects, or quitting revokes it; it also expires after eight hours. The link is temporary, and the underlying Quick Tunnel has no uptime guarantee. [Phone access and connection details](docs/phone-view.md).
+## Get started
 
-Fresh agent completion reports show a notification in the app and phone view, plus
-a Windows notification while the desktop is hidden. Phone **Enable completion
-alerts** requests permission for encrypted browser push, including with the phone
-view closed or the screen locked. On iPhone, add the view to your Home Screen and
-enable alerts there. Sharing must remain active; new sharing addresses need a new
-setup. [Completion alert setup](docs/phone-view.md#completion-notifications).
+### Windows desktop
 
-The EXE, running window, tray and phone Home Screen use the same CodeWatch icon.
-Windows notification registration creates a per-user Start Menu shortcut pointing
-at your portable EXE. Opening the EXE after moving it updates that path.
+1. Download the [v0.5.0 portable executable](https://github.com/jarvis0626/CodeWatch/releases/download/v0.5.0/CodeWatch-0.5.0-x64-portable.exe).
+2. Open it and choose your project folder.
+3. Open **Connect your AI**, add the generated configuration to your MCP-capable coding tool, and give the agent the reporting instructions.
+4. Start your task. Pin the companion or enable phone viewing as needed.
 
-## Start locally
+The portable app includes its runtime: no Python, Node, Docker, or model API key is required. The Windows build is unsigned. Quit an older instance before opening a new version; there is no automatic updater.
 
-Requirements: **Python 3.12+**, **Node 22.12+**. No model API key or database server is required. Install dependencies once while online; the dashboard and project watcher run locally.
+**Version note:** the linked release is v0.5.0. Light/Detailed selection is in v0.5.1 source on `main`; the attempted v0.5.1 build passed the mode-selector check but failed the packaged Windows notification-activation check, so that workflow did not publish a verified executable. [Build results](https://github.com/jarvis0626/CodeWatch/actions/runs/37583440510).
 
-### Windows (PowerShell)
+Copy MCP paths from **your own app**. After upgrading, refresh the configuration if the bundled helper path changes. Session history is currently held in memory and does not survive restarting the backend.
 
-Clone the project and install its dependencies:
+### Try it or run from source
 
-```powershell
-git clone https://github.com/jarvis0626/CodeWatch.git
-cd CodeWatch
-python -m venv backend/.venv
-.\backend\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
-npm.cmd --prefix frontend ci
-npm.cmd --prefix frontend run build
-.\backend\.venv\Scripts\python.exe -m backend.cli serve
-```
+The **Demo** tab provides a clearly labelled simulated workflow without attaching a real project. For a source installation, see [Windows, macOS, and Linux instructions](docs/technical-reference.md#start-locally).
 
-Open **http://127.0.0.1:8000**, enter the absolute path of the project you want to observe, and click **Watch project**. Keep your usual AI/editor working in that folder. CodeWatch updates as files change.
+## What you are looking at
 
-Or launch directly with a project:
+CodeWatch keeps three sources of information distinct:
 
-```powershell
-.\backend\.venv\Scripts\python.exe -m backend.cli watch 'D:\Projects\YourApp'
-```
-
-### macOS / Linux
-
-Use Python 3.12 or newer:
-
-```bash
-git clone https://github.com/jarvis0626/CodeWatch.git
-cd CodeWatch
-python3 -m venv backend/.venv
-backend/.venv/bin/python -m pip install -r backend/requirements.txt
-npm --prefix frontend ci
-npm --prefix frontend run build
-backend/.venv/bin/python -m backend.cli serve
-```
-
-Open **http://127.0.0.1:8000**. The project you watch can be a different repository anywhere on your machine; enter its absolute folder path in the dashboard.
-
-### Start it again later
-
-Return to the CodeWatch folder and run the final `serve` command for your platform. Dependency installation and the frontend build are only needed on first setup or after relevant updates. Keep that terminal running; press **Ctrl+C** to stop the server. Sessions are held in memory, so reconnect the project after restarting.
-
-### Optional short commands
-
-From the repository root, install the editable Python package into your environment:
-
-```powershell
-.\backend\.venv\Scripts\python.exe -m pip install -e .
-.\backend\.venv\Scripts\codewatch.exe watch 'D:\Projects\YourApp'
-```
-
-With that virtual environment activated, the commands are `codewatch` and `codewatch-mcp`. This is a local source installation, not a published marketplace package; keep this checkout and its built `frontend/dist/` in place.
-
-### During frontend development
-
-Run these in separate terminals:
-
-```powershell
-.\backend\.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --port 8000
-npm.cmd --prefix frontend run dev
-```
-
-Use **http://localhost:5173** for Vite development. `/api`, `/ws`, `/health`, and `/events/schema` proxy to the backend. The backend also serves the last built dashboard on port 8000. Rebuild frontend assets before using that single-process version after UI changes.
-
-## Connect your AI / IDE
-
-Click **Connect your AI** in the dashboard to copy a machine-specific configuration and the reporting instructions. It generates absolute paths to this installation; it does not change your IDE settings automatically.
-
-1. Run CodeWatch locally and watch your project.
-2. Add the generated CodeWatch MCP server to your tool's MCP configuration.
-3. Enable the server/tools in that tool.
-4. Give the agent the provided reporting instructions with your task.
-5. Keep CodeWatch visible beside the editor, or in the editor's browser panel if it has one.
-
-**[Full integration guide: Antigravity, ChatGPT/Codex, and other MCP clients](docs/integrations.md)**
-
-Local MCP clients can launch the bridge through stdio. Agent activity appears when the agent actually calls the reporting tools; installing an MCP server alone does not intercept every internal action. Folder watching works even without MCP and does not attribute changes to a particular AI.
-
-ChatGPT in a browser requires an additional supported connection, such as a configured Secure MCP Tunnel; it cannot launch this local stdio process directly. That remote setup is not provisioned by this project. See the integration guide's current official references and limitations.
-
-Light reporting is now the default: major milestones, important blockers, and final
-completion. Choose **Detailed** in **Connect your AI** for command/test and finer
-step reports. Copy the selected configuration and instructions, then reload your
-agent's MCP connection. File watching and completion alerts work in both modes.
-[Reporting mode setup](docs/integrations.md#light-and-detailed-reporting).
-
-### MCP tools
-
-- `codewatch_watch_project`: attach a local project and return its session/run ID.
-- `codewatch_status`: discover the current session.
-- `codewatch_progress`: report stage, concise action, and affected paths.
-- `codewatch_relationship`: describe a connection between two project files.
-- `codewatch_test`: report a test attempt and its outcome.
-- `codewatch_command`: report command start and finish with the same invocation ID.
-- `codewatch_complete`: report that the agent's task is complete; watching continues.
-
-Each report requires the current `run_id`. Old reports cannot accidentally update a different watched project. Names/identities are provided by the client; CodeWatch does not authenticate which model made a change.
-
-## Capture actual terminal commands
-
-The dashboard and MCP bridge never execute arbitrary project commands. Run the explicit wrapper yourself when you want real command output in the dashboard:
-
-```powershell
-.\backend\.venv\Scripts\python.exe -m backend.cli run -- python -m pytest
-```
-
-The command runs in the **watched project directory**, forwards output to your terminal, reports its exit code, and returns that exit code. Arguments are passed directly without an implicit shell. On Windows, use an executable such as `python.exe` or explicitly invoke your intended shell when shell syntax is needed.
-
-To capture individual test cases, ask your test runner to produce JUnit XML:
-
-```powershell
-.\backend\.venv\Scripts\python.exe -m backend.cli run --junit .local/results.xml --attempt 1 -- python -m pytest --junitxml=.local/results.xml
-```
-
-Create the report's parent folder in your project if the test runner requires it. Use `--attempt 2` on the next run. Only a new/changed report inside the project is read; skipped cases are omitted. Output retained in the dashboard is capped at 16,000 characters, and JUnit input at 2 MB / 500 tests. Command output and names you send can contain sensitive text, so choose what you report to the local dashboard.
-
-Other CLI commands:
-
-```powershell
-.\backend\.venv\Scripts\python.exe -m backend.cli status
-.\backend\.venv\Scripts\python.exe -m backend.cli attach 'D:\Projects\OtherApp' --agent 'My coding agent'
-.\backend\.venv\Scripts\python.exe -m backend.cli config
-.\backend\.venv\Scripts\python.exe -m backend.cli stop
-```
-
-For a custom port: `serve --port 8010`, and put `--server-url http://127.0.0.1:8010` before `status`, `attach`, `config`, `stop`, or `run`.
-
-## What the real dashboard shows
-
-- A connected work flow with selectable steps, latest report and agent-reported working file. Its arrows show report order; step details show actual known file connections.
-- A compact pinned companion that keeps the flow visible beside your editor, with full-app controls for the complete dashboard.
-- A project map of actual folders, recent changes, file search, and readable **Uses code from** / **Used by** lists. A small diagram is optional, and the map can be collapsed.
-- Solid import relationships and separately identified agent-reported relationships.
-- The current reported task and active files, without inventing a stage from filesystem activity.
-- Actual reported stage visits, including repeated testing/debugging cycles.
-- Newest file changes first, including deletion, and source-labeled tests and commands.
-- Bounded chronological event history and NDJSON download.
-- Session identity, path, tracked files, changed files, counters, scan warnings, and connection status.
-- Automatic reconnect with a complete graph snapshot and retained test/command/stage results.
-- Stop/reconnect project controls. Closing a dashboard tab does not stop the watcher or other viewers.
-
-One project is active per CodeWatch server process. Selecting another project switches the shared session for all connected viewers. To observe projects independently, run separate servers on different ports. Runs are kept in memory until the server stops; persistent historical replay is not implemented.
-
-## Scanner coverage and limits
-
-The watcher polls approximately every 750 ms and reads source files without executing them or modifying the watched repository.
-
-- **Python:** AST-based local absolute/relative imports, package initializers and common `src/` layout.
-- **JavaScript / TypeScript / JSX / TSX:** best-effort local relative static imports/exports, literal `require()`/`import()`, directory indexes, and TypeScript source behind `.js` imports.
-- Other supported source/config languages appear as file nodes. Their dependencies are not fabricated.
-- Package aliases, `tsconfig` path mappings, computed imports, remote APIs, database usage and runtime calls are not automatically resolved. Agents can explicitly report higher-level relationships.
-- Folder/name-based roles such as frontend, API, service, repository and database are inferred labels, not semantic verification.
-- Root `.gitignore` and `.codewatchignore` are respected. Dependency folders, generated output, common secrets/key files, binary files, symlinks and junctions are skipped. Nested ignore files are not interpreted.
-- Default limits: 500 tracked files, 512 KB per file, with additional traversal/depth/total-byte caps. Warnings disclose incomplete scans. Watch a smaller subfolder for large repositories.
-- Folder cards summarize the full indexed project. File lists show up to 100 entries; search narrows longer lists. The optional diagram shows the selected file and up to three neighbors on each side, while its connection lists retain all known direct links.
-- File state settles after a short highlight. Test failures stay failed until subsequent test reports resolve them.
-
-A short-lived file created and removed between polls can be missed. Rapid changes can be coalesced into one observed update. Deleted or ignored files are removed from the graph; newly ignored files are not falsely reported as deleted on disk.
-
-## Event and transport architecture
-
-```text
-Any editor / coding agent                MCP-capable agent
-          |                                     |
-          v                                     v
-    Local project files                 CodeWatch stdio bridge
-          |                                     |
-          v                                     | HTTP reports
-  Read-only scanner ----> Universal Events <----+
-                                ^
-                                | Explicit CLI command / JUnit capture
-                                |
-                          FastAPI session
-                                |
-                                | /ws/live (snapshot + events + heartbeat)
-                                v
-                        React Flow dashboard
-```
-
-Pydantic models validate producer data; matching Zod schemas validate the browser boundary. Each event has `schemaVersion`, unique `runId` / `eventId`, UTC timestamp, monotonic sequence, event type/status, `source`, optional `agentName`, and typed `data`.
-
-Sources are `filesystem`, `agent`, `command`, `system`, and `simulator`. A source is provenance supplied by the local integration, not a cryptographic guarantee. The server assigns IDs/order. Agent reports describe actions and outcomes, not private reasoning.
-
-`GET /events/schema` exposes the full contract. The live API is:
-
-| Route | Purpose |
+| Source | What it establishes |
 | --- | --- |
-| `GET /health` | Health check |
-| `GET /api/session` | Current watched session |
-| `POST /api/watch` | Attach `{path, agentName?}` |
-| `POST /api/watch/stop` | Stop `{runId}` |
-| `GET /api/integrations` | Generated local MCP setup |
-| `POST /api/agent/progress` | `{runId, agentName, stage, message, paths}` |
-| `POST /api/agent/relationship` | `{runId, agentName, source, target, label, description?}` |
-| `POST /api/agent/test` | `{runId, agentName, name, status, attempt, path?, details?}` |
-| `POST /api/agent/command` | `{runId, agentName, commandId, command, status, output?, exitCode?}` |
-| `POST /api/agent/complete` | `{runId, agentName, message}` |
-| `WS /ws/live` | Shared session snapshots, events and heartbeats |
-| `WS /ws/build` | Isolated simulated demo |
+| File watcher | A supported file was created, modified, or deleted; supported static imports were discovered. |
+| Agent report | The agent described a task, connection, command, test result, or completion. |
+| Explicit command wrapper | A command actually ran through the wrapper, with its output and exit code; fresh JUnit results can be captured. |
 
-The live stream sends an initial `snapshot` containing session metadata, the last 500 events, up to 2,000 activity events for step evidence, retained outcomes/stage visits, and canonical nodes/edges; then `event` and `session` frames. Heartbeats arrive during quiet periods. Slow subscribers receive a fresh snapshot. History remains bounded and in memory.
+A saved file does not prove who edited it. An import graph is not a runtime trace. Agent-reported results are labelled separately from captured evidence.
 
-For direct local scripts, report HTTP JSON using the same routes. Producers must use current run IDs and project-relative paths; traversal, linked paths and common secret paths are rejected. Command outcomes must follow a started invocation, and older test attempts are rejected.
+The app does not yet provide native IDE interception, a marketplace extension, remote/cloud workspace observation, durable history, or multiple simultaneous project tabs. [Coverage and limitations](docs/technical-reference.md#scanner-coverage-and-limits).
 
-The desktop API and MCP service bind to loopback. Browser origins are checked, including WebSockets; mutating HTTP calls require JSON. Optional phone sharing uses a separate, paired read-only viewer through a temporary tunnel; it does not publish the desktop API. `CODEWATCH_ALLOWED_ORIGINS` can extend the frontend origin list. `CODEWATCH_SERVER_URL` configures bridge/CLI clients; MCP configuration uses the backend's configured server URL. Do not expose the local observer as an unauthenticated public service.
+## Technical details
 
-## Demo mode
+The backend uses Python/FastAPI for bounded file watching, event validation, and session state. The React interface presents the work flow and project map. A local MCP bridge accepts agent reports, while the Electron desktop package supplies window, tray, and phone-sharing controls.
 
-The original 36-second Todo simulation remains in the **Demo** tab. It emits 73 events, including a test failure, debugging, and a passing rerun. It is explicitly simulated and never writes the example files or runs those example commands. Use it to explore the UI without selecting a real project.
+File observation and rendering do not call a model. Agent-written MCP reports use the connected coding agent. Optional phone sharing uses a separate paired, read-only viewer through a temporary Cloudflare tunnel; the desktop API stays local.
 
-## Development and verification
-
-The current implementation passed **176 backend tests, 45 frontend unit tests, 42 native-window/tunnel/notification tests and 20 browser tests**, plus lint and a production build. The actual portable EXE passed native Windows completion notifications, embedded icons and public phone pairing. Details are recorded in [Windows packaging](docs/windows-packaging.md). These checks do not mean every vendor's IDE or physical phone was manually tested.
-
-```powershell
-.\backend\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
-.\backend\.venv\Scripts\python.exe -m pytest -q
-.\backend\.venv\Scripts\python.exe -m ruff check backend
-npm.cmd --prefix frontend test
-node --test desktop/main.test.cjs desktop/phone-tunnel.test.cjs desktop/completion-notifications.test.cjs desktop/windows-notifications.test.cjs
-npm.cmd --prefix frontend run build
-npm.cmd --prefix frontend run test:e2e
-```
-
-Browser tests use installed Google Chrome and start/reuse ports 8000 and 5173. Close your interactive session before running them: the real-project test switches the watched project to a temporary fixture. If Chrome is unavailable, install Playwright Chromium and remove the `channel: 'chrome'` setting. Tests cover real file changes, reconnects, reports, stale runs, boundaries, MCP protocol/forwarding, command capture, and the simulated flow.
-
-## Important files
-
-```text
-backend/
-  main.py                   HTTP/WebSockets, local origins, built dashboard hosting
-  cli.py                    Single-process launcher and local CLI
-  command_capture.py        Explicit process output / JUnit capture
-  observer/
-    scanner.py              Bounded read-only source/import analysis
-    manager.py              Watch lifecycle, diffs and subscribers
-    session.py              Event history and canonical graph state
-    reports.py              Agent activity, relationships, commands and tests
-    requests.py, routes.py  Producer API
-  mcp_server.py             Official-SDK stdio integration
-  integrations/             Shared loopback client, generated config/instructions
-  models/events.py          Universal event schema
-  agent/                    Optional deterministic demo
-frontend/src/
-  hooks/useLiveEvents.ts     Persistent real-project connection
-  state/build.ts            Shared event reducer
-  types/events.ts           Runtime contract
-  components/               Project map, demo graph, project setup, source-aware panels
-  App.tsx, styles/           Dashboard and styling
-```
-
-## What is not automatic yet
-
-Native IDE-specific tool-call hooks, packaged marketplace extensions, intercepting every agent action, remote/cloud workspace observation, symbol-level control flow, runtime tracing, advanced language/alias resolution, multi-project tabs, durable session history, and permanent hosted dashboards. MCP and the event API are the extension points for adding those capabilities without coupling the graph to a particular model.
+| Documentation | What you will find |
+| --- | --- |
+| [Technical reference](docs/technical-reference.md) | Source setup, MCP tools, API routes, event schema, scanner limits, architecture, and test commands. |
+| [Integration guide](docs/integrations.md) | Agent configuration, Light/Detailed modes, and connection troubleshooting. |
+| [Work flow guide](docs/work-flow.md) | Step cards, evidence, and the compact companion. |
+| [Project map guide](docs/project-map.md) | Folders, imports, and agent-reported connections. |
+| [Phone view guide](docs/phone-view.md) | Pairing, privacy, notifications, expiration, and network requirements. |
+| [Windows packaging](docs/windows-packaging.md) | Build commands, packaged verification, and platform limitations. |
+| [Demo media](docs/media/README.md) | How the README animations were captured. |
