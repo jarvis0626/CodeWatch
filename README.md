@@ -65,11 +65,8 @@ Connect MCP once, then select **Light** or **Detailed** in **Connect your AI**. 
 
 The portable app includes its runtime: no Python, Node, Docker, or model API key is required. The Windows build is unsigned. Quit an older instance before opening a new version; there is no automatic updater.
 
-**Version note:** source on `main` is v0.5.1. The Windows workflow publishes a new
-release only after backend, browser, packaged notification, icon, and MCP checks
-pass. Check the [latest release](https://github.com/jarvis0626/CodeWatch/releases/latest)
-for the currently available EXE and [Actions](https://github.com/jarvis0626/CodeWatch/actions)
-for builds in progress.
+**Version:** v1.0.0. Download the Windows EXE from the existing
+[V1.0 release](https://github.com/jarvis0626/CodeWatch/releases/tag/V1.0).
 
 Copy MCP paths from **your own app**. After upgrading, refresh the configuration if the bundled helper path changes. Session history is currently held in memory and does not survive restarting the backend.
 

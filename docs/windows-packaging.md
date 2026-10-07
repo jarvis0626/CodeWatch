@@ -15,8 +15,8 @@ Durable replay and native vendor hooks remain separate work.
 
 ## Run the app
 
-Download the executable from the [v0.5.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/v0.5.0),
-or build `dist/windows/CodeWatch-0.5.0-x64-portable.exe` locally. Copy it to a Windows x64
+Download the executable from the [V1.0 GitHub release](https://github.com/jarvis0626/CodeWatch/releases/tag/V1.0),
+or build `dist/windows/CodeWatch-1.0.0-x64-portable.exe` locally. Copy it to a Windows x64
 machine and double-click it. Click **Choose folder** to start watching. Use
 **Connect your AI** for MCP configuration and reporting instructions.
 
